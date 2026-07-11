@@ -11,7 +11,22 @@ using zedit::core::FileIoError;
 using zedit::core::Key;
 using zedit::core::KeyEvent;
 
+void draw_vertical_separator() {
+  ImGui::SameLine();
+  ImGui::Dummy(ImVec2(1.0f, ImGui::GetFrameHeight()));
+  ImVec2 p0 = ImGui::GetItemRectMin();
+  ImVec2 p1 = ImGui::GetItemRectMax();
+  float x = (p0.x + p1.x) * 0.5f;
+  ImGui::GetWindowDrawList()->AddLine(ImVec2(x, p0.y + 2.0f), ImVec2(x, p1.y - 2.0f),
+                                       ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
+  ImGui::SameLine();
+}
+
 void render_toolbar(Editor& ed) {
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 5.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 4.0f));
+
   if (ImGui::Button("New")) {
     ed.open_buffer("");
   }
@@ -22,9 +37,7 @@ void render_toolbar(Editor& ed) {
     } catch (const FileIoError&) {
     }
   }
-  ImGui::SameLine();
-  ImGui::TextUnformatted("|");
-  ImGui::SameLine();
+  draw_vertical_separator();
   if (ImGui::Button("Undo")) {
     ed.undo();
   }
@@ -32,9 +45,7 @@ void render_toolbar(Editor& ed) {
   if (ImGui::Button("Redo")) {
     ed.redo();
   }
-  ImGui::SameLine();
-  ImGui::TextUnformatted("|");
-  ImGui::SameLine();
+  draw_vertical_separator();
   if (ImGui::Button("Copy")) {
     ed.handle_key(KeyEvent{Key::CtrlC, 0});
   }
@@ -46,9 +57,7 @@ void render_toolbar(Editor& ed) {
   if (ImGui::Button("Select All")) {
     ed.handle_key(KeyEvent{Key::CtrlA, 0});
   }
-  ImGui::SameLine();
-  ImGui::TextUnformatted("|");
-  ImGui::SameLine();
+  draw_vertical_separator();
   if (ImGui::Button("Split H")) {
     ed.split_horizontal();
   }
@@ -56,6 +65,8 @@ void render_toolbar(Editor& ed) {
   if (ImGui::Button("Split V")) {
     ed.split_vertical();
   }
+
+  ImGui::PopStyleVar(3);
 }
 
 }  // namespace zedit::frontend

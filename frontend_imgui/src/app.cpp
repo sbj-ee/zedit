@@ -7,8 +7,6 @@
 #include "input_map.hpp"
 #include "menu_bar.hpp"
 #include "status_line.hpp"
-#include "tab_bar.hpp"
-#include "toolbar.hpp"
 
 namespace zedit::frontend {
 
@@ -47,13 +45,6 @@ void App::render_frame(ImGuiIO& io) {
                             ImGuiWindowFlags_NoCollapse |
                             ImGuiWindowFlags_NoBringToFrontOnFocus;
   ImGui::Begin("zedit_main", nullptr, flags);
-
-  render_toolbar(editor_);
-  ImGui::SameLine();
-  ImGui::TextUnformatted("|");
-  ImGui::SameLine();
-  render_tab_bar(editor_);
-  ImGui::Separator();
 
   float status_line_height = ImGui::GetTextLineHeightWithSpacing() + 6.0f;
   float content_height = ImGui::GetContentRegionAvail().y - status_line_height;

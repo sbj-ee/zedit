@@ -4,6 +4,8 @@
 
 #include <array>
 
+#include "tab_bar.hpp"
+#include "toolbar.hpp"
 #include "zedit/core/file_io.hpp"
 
 namespace zedit::frontend {
@@ -152,6 +154,14 @@ void render_menu_bar(Editor& ed) {
       }
       ImGui::EndMenu();
     }
+
+    // Toolbar buttons and open-file tabs live on this same bar rather
+    // than stacked rows below it -- one unified top bar, gedit-style.
+    draw_vertical_separator();
+    render_toolbar(ed);
+    draw_vertical_separator();
+    render_tab_bar(ed);
+
     ImGui::EndMainMenuBar();
   }
 
