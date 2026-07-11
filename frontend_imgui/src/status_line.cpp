@@ -9,8 +9,8 @@ using zedit::core::Editor;
 using zedit::core::Mode;
 
 void render_status_line(const Editor& ed) {
-  if (ed.mode() == Mode::CommandLine) {
-    ImGui::Text(":%s", ed.command_line_buffer().c_str());
+  if (ed.mode() == Mode::CommandLine || ed.mode() == Mode::Search) {
+    ImGui::Text("%c%s", ed.line_input_prefix(), ed.command_line_buffer().c_str());
     return;
   }
 

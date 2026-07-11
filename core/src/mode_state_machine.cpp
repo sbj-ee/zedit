@@ -1,12 +1,14 @@
 #include "zedit/core/mode_state_machine.hpp"
 
 #include <algorithm>
+#include <utility>
 
 #include "zedit/core/command_line.hpp"
 #include "zedit/core/editor.hpp"
 #include "zedit/core/file_io.hpp"
 #include "zedit/core/motion.hpp"
 #include "zedit/core/operator.hpp"
+#include "zedit/core/search.hpp"
 
 namespace zedit::core {
 
@@ -38,6 +40,8 @@ KeyResult ModeStateMachine::handle_key(KeyEvent ev, Editor& ed) {
     case Mode::Visual:
     case Mode::VisualLine:
       return handle_visual(ev, ed);
+    case Mode::Search:
+      return handle_search(ev, ed);
   }
   return KeyResult{};
 }
@@ -93,16 +97,61 @@ bool ModeStateMachine::apply_plain_motion(char ch, Editor& ed, int repeat) {
   }
 }
 
+bool ModeStateMachine::resolve_charwise_motion(char ch, OperatorKind op, int count,
+                                                Editor& ed, size_t& b, bool& inclusive) {
+  switch (ch) {
+    case 'w':
+      // Real vim's "cw" acts like "ce" (stops at the end of the word rather
+      // than eating the trailing whitespace that plain "w" would consume) --
+      // otherwise "cwfoo" on "bar baz" would leave a stray leading space.
+      if (op == OperatorKind::Change) {
+        for (int i = 0; i < count; ++i) b = motion_word_end_forward(ed.buffer(), b);
+        inclusive = true;
+      } else {
+        for (int i = 0; i < count; ++i) b = motion_word_forward(ed.buffer(), b);
+      }
+      return true;
+    case 'b':
+      for (int i = 0; i < count; ++i) b = motion_word_backward(ed.buffer(), b);
+      return true;
+    case 'e':
+      for (int i = 0; i < count; ++i) b = motion_word_end_forward(ed.buffer(), b);
+      inclusive = true;
+      return true;
+    case '0':
+      b = motion_line_start(ed.buffer(), b);
+      return true;
+    case '$':
+      b = motion_line_end(ed.buffer(), b);
+      inclusive = true;
+      return true;
+    case 'h':
+      for (int i = 0; i < count; ++i) b = offset_left_within_line(ed, b);
+      return true;
+    case 'l':
+      for (int i = 0; i < count; ++i) b = offset_right_within_line(ed, b);
+      return true;
+    default:
+      return false;
+  }
+}
+
 void ModeStateMachine::finish_pending_operator(char ch, Editor& ed) {
   OperatorKind op = *pending_.op;
   int count = pending_.count > 0 ? pending_.count : 1;
+  char register_name = pending_.register_name;
 
   if (pending_.awaiting_inner_object) {
     if (ch == 'w') {
       Range r = text_object_inner_word(ed.buffer(), ed.cursor_offset());
-      execute_operator_charwise(op, r, ed);
-      if (op == OperatorKind::Delete) ed.clamp_cursor_to_line();
-      if (op == OperatorKind::Change) mode_ = Mode::Insert;
+      execute_operator_charwise(op, r, ed, register_name);
+      if (op == OperatorKind::Delete) {
+        ed.clamp_cursor_to_line();
+        last_change_ = LastChange{ChangeKind::TextObjectOperator, op, 0, 0, 1, false, register_name, {}};
+      } else if (op == OperatorKind::Change) {
+        mode_ = Mode::Insert;
+        begin_insert_change(LastChange{ChangeKind::TextObjectOperator, op, 0, 0, 1, false, register_name, {}});
+      }
     }
     reset_pending();
     return;
@@ -117,8 +166,13 @@ void ModeStateMachine::finish_pending_operator(char ch, Editor& ed) {
                  (op == OperatorKind::Yank && ch == 'y') ||
                  (op == OperatorKind::Change && ch == 'c');
   if (doubled) {
-    execute_operator_linewise(op, ed.cursor().line, count, ed);
-    if (op == OperatorKind::Change) mode_ = Mode::Insert;
+    execute_operator_linewise(op, ed.cursor().line, count, ed, register_name);
+    if (op == OperatorKind::Change) {
+      mode_ = Mode::Insert;
+      begin_insert_change(LastChange{ChangeKind::LinewiseOperator, op, 0, 0, count, false, register_name, {}});
+    } else if (op == OperatorKind::Delete) {
+      last_change_ = LastChange{ChangeKind::LinewiseOperator, op, 0, 0, count, false, register_name, {}};
+    }
     reset_pending();
     return;
   }
@@ -126,52 +180,20 @@ void ModeStateMachine::finish_pending_operator(char ch, Editor& ed) {
   size_t a = ed.cursor_offset();
   size_t b = a;
   bool inclusive = false;
-  bool valid_motion = true;
-
-  switch (ch) {
-    case 'w':
-      // Real vim's "cw" acts like "ce" (stops at the end of the word rather
-      // than eating the trailing whitespace that plain "w" would consume) --
-      // otherwise "cwfoo" on "bar baz" would leave a stray leading space.
-      if (op == OperatorKind::Change) {
-        for (int i = 0; i < count; ++i) b = motion_word_end_forward(ed.buffer(), b);
-        inclusive = true;
-      } else {
-        for (int i = 0; i < count; ++i) b = motion_word_forward(ed.buffer(), b);
-      }
-      break;
-    case 'b':
-      for (int i = 0; i < count; ++i) b = motion_word_backward(ed.buffer(), b);
-      break;
-    case 'e':
-      for (int i = 0; i < count; ++i) b = motion_word_end_forward(ed.buffer(), b);
-      inclusive = true;
-      break;
-    case '0':
-      b = motion_line_start(ed.buffer(), a);
-      break;
-    case '$':
-      b = motion_line_end(ed.buffer(), a);
-      inclusive = true;
-      break;
-    case 'h':
-      for (int i = 0; i < count; ++i) b = offset_left_within_line(ed, b);
-      break;
-    case 'l':
-      for (int i = 0; i < count; ++i) b = offset_right_within_line(ed, b);
-      break;
-    default:
-      valid_motion = false;
-      break;
-  }
+  bool valid_motion = resolve_charwise_motion(ch, op, count, ed, b, inclusive);
 
   if (valid_motion) {
     size_t lo = std::min(a, b);
     size_t hi = std::max(a, b);
     if (inclusive) hi = std::min(hi + 1, ed.buffer().size());
-    execute_operator_charwise(op, Range{lo, hi}, ed);
-    if (op == OperatorKind::Delete) ed.clamp_cursor_to_line();
-    if (op == OperatorKind::Change) mode_ = Mode::Insert;
+    execute_operator_charwise(op, Range{lo, hi}, ed, register_name);
+    if (op == OperatorKind::Delete) {
+      ed.clamp_cursor_to_line();
+      last_change_ = LastChange{ChangeKind::CharwiseOperator, op, ch, 0, count, false, register_name, {}};
+    } else if (op == OperatorKind::Change) {
+      mode_ = Mode::Insert;
+      begin_insert_change(LastChange{ChangeKind::CharwiseOperator, op, ch, 0, count, false, register_name, {}});
+    }
   }
   reset_pending();
 }
@@ -203,6 +225,91 @@ void ModeStateMachine::finish_operator_on_visual_selection(OperatorKind op, Edit
   if (op == OperatorKind::Delete) ed.clamp_cursor_to_line();
   if (op == OperatorKind::Change) mode_ = Mode::Insert;
   reset_pending();
+}
+
+void ModeStateMachine::begin_insert_change(LastChange lc) {
+  pending_change_ = std::move(lc);
+  insert_session_text_.clear();
+}
+
+void ModeStateMachine::replay_insert_text(const std::string& text, Editor& ed) {
+  for (char c : text) {
+    ed.insert_char(c);
+  }
+  ed.clamp_cursor_to_line();
+}
+
+void ModeStateMachine::repeat_last_change(Editor& ed) {
+  const LastChange& lc = last_change_;
+  switch (lc.kind) {
+    case ChangeKind::None:
+      return;
+    case ChangeKind::DeleteChar:
+      execute_delete_char(lc.count, ed, lc.register_name);
+      return;
+    case ChangeKind::Paste:
+      execute_paste(lc.paste_before, lc.count, ed, lc.register_name);
+      return;
+    case ChangeKind::LinewiseOperator:
+      execute_operator_linewise(lc.op, ed.cursor().line, lc.count, ed, lc.register_name);
+      if (lc.op == OperatorKind::Delete) {
+        ed.clamp_cursor_to_line();
+      } else {
+        replay_insert_text(lc.typed_text, ed);
+      }
+      return;
+    case ChangeKind::CharwiseOperator: {
+      size_t a = ed.cursor_offset();
+      size_t b = a;
+      bool inclusive = false;
+      if (!resolve_charwise_motion(lc.motion_ch, lc.op, lc.count, ed, b, inclusive)) {
+        return;
+      }
+      size_t lo = std::min(a, b);
+      size_t hi = std::max(a, b);
+      if (inclusive) hi = std::min(hi + 1, ed.buffer().size());
+      execute_operator_charwise(lc.op, Range{lo, hi}, ed, lc.register_name);
+      if (lc.op == OperatorKind::Delete) {
+        ed.clamp_cursor_to_line();
+      } else {
+        replay_insert_text(lc.typed_text, ed);
+      }
+      return;
+    }
+    case ChangeKind::TextObjectOperator: {
+      Range r = text_object_inner_word(ed.buffer(), ed.cursor_offset());
+      execute_operator_charwise(lc.op, r, ed, lc.register_name);
+      if (lc.op == OperatorKind::Delete) {
+        ed.clamp_cursor_to_line();
+      } else {
+        replay_insert_text(lc.typed_text, ed);
+      }
+      return;
+    }
+    case ChangeKind::PlainInsert:
+      ed.begin_undo_group();
+      switch (lc.insert_trigger) {
+        case 'a': {
+          Cursor c = ed.cursor();
+          size_t len = ed.buffer().line_text(c.line).size();
+          if (c.col < len) {
+            ++c.col;
+            ed.set_cursor(c);
+          }
+          break;
+        }
+        case 'o':
+          ed.open_line_below();
+          break;
+        case 'O':
+          ed.open_line_above();
+          break;
+        default:
+          break;  // 'i': insert right where the cursor already is
+      }
+      replay_insert_text(lc.typed_text, ed);
+      return;
+  }
 }
 
 KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
@@ -244,6 +351,16 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
 
   char ch = ev.ch;
 
+  if (pending_.awaiting_register_name) {
+    pending_.awaiting_register_name = false;
+    if (ch >= 'a' && ch <= 'z') {
+      pending_.register_name = ch;
+      return KeyResult{};
+    }
+    reset_pending();
+    return KeyResult{};
+  }
+
   if (pending_.op.has_value()) {
     finish_pending_operator(ch, ed);
     return KeyResult{};
@@ -263,6 +380,7 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     case 'i':
       ed.begin_undo_group();
       mode_ = Mode::Insert;
+      begin_insert_change(LastChange{ChangeKind::PlainInsert, OperatorKind::Delete, 0, 'i', 1, false, 0, {}});
       break;
     case 'a': {
       ed.begin_undo_group();
@@ -273,22 +391,51 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
         ed.set_cursor(c);
       }
       mode_ = Mode::Insert;
+      begin_insert_change(LastChange{ChangeKind::PlainInsert, OperatorKind::Delete, 0, 'a', 1, false, 0, {}});
       break;
     }
     case 'o':
       ed.begin_undo_group();
       ed.open_line_below();
       mode_ = Mode::Insert;
+      begin_insert_change(LastChange{ChangeKind::PlainInsert, OperatorKind::Delete, 0, 'o', 1, false, 0, {}});
       break;
     case 'O':
       ed.begin_undo_group();
       ed.open_line_above();
       mode_ = Mode::Insert;
+      begin_insert_change(LastChange{ChangeKind::PlainInsert, OperatorKind::Delete, 0, 'O', 1, false, 0, {}});
       break;
     case ':':
       mode_ = Mode::CommandLine;
       command_line_buffer_.clear();
+      line_input_prefix_ = ':';
       break;
+    case '/':
+    case '?':
+      mode_ = Mode::Search;
+      command_line_buffer_.clear();
+      line_input_prefix_ = ch;
+      break;
+    case 'n':
+      ed.jump_to_search(ed.last_search_forward());
+      break;
+    case 'N':
+      ed.jump_to_search(!ed.last_search_forward());
+      break;
+    case '*':
+    case '#': {
+      Range word = text_object_inner_word(ed.buffer(), ed.cursor_offset());
+      if (word.end > word.start) {
+        std::string pattern = ed.buffer().text_range(word.start, word.end - word.start);
+        ed.set_last_search(pattern, ch == '*');
+        ed.jump_to_search(ch == '*');
+      }
+      break;
+    }
+    case '"':
+      pending_.awaiting_register_name = true;
+      return KeyResult{};
     case 'd':
       pending_.op = OperatorKind::Delete;
       return KeyResult{};
@@ -299,13 +446,22 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
       pending_.op = OperatorKind::Change;
       return KeyResult{};
     case 'x':
-      execute_delete_char(repeat, ed);
+      execute_delete_char(repeat, ed, pending_.register_name);
+      last_change_ = LastChange{ChangeKind::DeleteChar, OperatorKind::Delete, 0, 0, repeat, false,
+                                 pending_.register_name, {}};
       break;
     case 'p':
-      execute_paste(/*before=*/false, repeat, ed);
+      execute_paste(/*before=*/false, repeat, ed, pending_.register_name);
+      last_change_ = LastChange{ChangeKind::Paste, OperatorKind::Delete, 0, 0, repeat, false,
+                                 pending_.register_name, {}};
       break;
     case 'P':
-      execute_paste(/*before=*/true, repeat, ed);
+      execute_paste(/*before=*/true, repeat, ed, pending_.register_name);
+      last_change_ = LastChange{ChangeKind::Paste, OperatorKind::Delete, 0, 0, repeat, true,
+                                 pending_.register_name, {}};
+      break;
+    case '.':
+      repeat_last_change(ed);
       break;
     case 'u':
       ed.undo();
@@ -327,10 +483,19 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
   if (ev.key == Key::Escape) {
     mode_ = Mode::Normal;
     ed.clamp_cursor_to_line();
+    if (pending_change_.has_value()) {
+      pending_change_->typed_text = insert_session_text_;
+      last_change_ = std::move(*pending_change_);
+      pending_change_.reset();
+    }
   } else if (ev.key == Key::Enter) {
     ed.insert_char('\n');
+    insert_session_text_.push_back('\n');
   } else if (ev.key == Key::Backspace) {
     ed.backspace();
+    if (!insert_session_text_.empty()) {
+      insert_session_text_.pop_back();
+    }
   } else if (ev.key == Key::Left) {
     ed.move_left();
   } else if (ev.key == Key::Right) {
@@ -341,6 +506,7 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
     ed.move_down();
   } else if (ev.key == Key::Char) {
     ed.insert_char(ev.ch);
+    insert_session_text_.push_back(ev.ch);
   }
   return KeyResult{};
 }
@@ -449,6 +615,23 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
         last_error_ = e.what();
       }
       break;
+    case ExCommandKind::Edit:
+      if (cmd.argument.empty()) {
+        last_error_ = "no file name";
+      } else {
+        ed.open_buffer(cmd.argument);
+      }
+      break;
+    case ExCommandKind::NextBuffer:
+      ed.next_buffer();
+      break;
+    case ExCommandKind::PrevBuffer:
+      ed.prev_buffer();
+      break;
+    case ExCommandKind::ListBuffers:
+      // The buffer list itself is rendered by the frontend (tab bar); this
+      // command has nothing further to do at the core layer.
+      break;
     case ExCommandKind::Empty:
     case ExCommandKind::Unknown:
       break;
@@ -457,6 +640,40 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
   if (ed.should_quit()) {
     return KeyResult{EditorAction::Quit};
   }
+  return KeyResult{};
+}
+
+KeyResult ModeStateMachine::handle_search(KeyEvent ev, Editor& ed) {
+  if (ev.key == Key::Escape) {
+    command_line_buffer_.clear();
+    mode_ = Mode::Normal;
+    return KeyResult{};
+  }
+  if (ev.key == Key::Backspace) {
+    if (command_line_buffer_.empty()) {
+      mode_ = Mode::Normal;
+    } else {
+      command_line_buffer_.pop_back();
+    }
+    return KeyResult{};
+  }
+  if (ev.key == Key::Char) {
+    command_line_buffer_.push_back(ev.ch);
+    return KeyResult{};
+  }
+  if (ev.key != Key::Enter) {
+    return KeyResult{};
+  }
+
+  bool forward = (line_input_prefix_ == '/');
+  const std::string& pattern =
+      command_line_buffer_.empty() ? ed.last_search_pattern() : command_line_buffer_;
+  if (!pattern.empty()) {
+    ed.set_last_search(pattern, forward);
+    ed.jump_to_search(forward);
+  }
+  command_line_buffer_.clear();
+  mode_ = Mode::Normal;
   return KeyResult{};
 }
 

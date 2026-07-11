@@ -5,6 +5,7 @@ add_library(zedit_core STATIC
   src/command_line.cpp
   src/motion.cpp
   src/operator.cpp
+  src/search.cpp
   src/mode_state_machine.cpp
   src/editor.cpp
 )

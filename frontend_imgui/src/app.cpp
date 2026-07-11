@@ -6,6 +6,7 @@
 
 #include "input_map.hpp"
 #include "status_line.hpp"
+#include "tab_bar.hpp"
 
 namespace zedit::frontend {
 
@@ -27,6 +28,8 @@ void App::render_frame(ImGuiIO& io) {
                             ImGuiWindowFlags_NoCollapse |
                             ImGuiWindowFlags_NoBringToFrontOnFocus;
   ImGui::Begin("zedit_main", nullptr, flags);
+
+  render_tab_bar(editor_);
 
   float status_line_height = ImGui::GetTextLineHeightWithSpacing() + 6.0f;
   float text_view_height =

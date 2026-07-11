@@ -48,12 +48,13 @@ Range linewise_erase_range(const PieceTable& buf, LinewiseSpan span) {
 
 }  // namespace
 
-void execute_operator_charwise(OperatorKind op, Range range, Editor& ed) {
+void execute_operator_charwise(OperatorKind op, Range range, Editor& ed,
+                                char register_name) {
   if (range.start >= range.end) {
     return;
   }
   std::string text = ed.buffer().text_range(range.start, range.end - range.start);
-  ed.set_unnamed_register(text, false);
+  ed.set_register(register_name, text, false);
 
   if (op == OperatorKind::Yank) {
     ed.set_cursor(ed.offset_to_cursor(range.start));
@@ -66,10 +67,10 @@ void execute_operator_charwise(OperatorKind op, Range range, Editor& ed) {
 }
 
 void execute_operator_linewise(OperatorKind op, size_t start_line, int count,
-                                Editor& ed) {
+                                Editor& ed, char register_name) {
   LinewiseSpan span = linewise_span(ed.buffer(), start_line, count);
   std::string text = linewise_text(ed.buffer(), span);
-  ed.set_unnamed_register(text, true);
+  ed.set_register(register_name, text, true);
 
   if (op == OperatorKind::Yank) {
     ed.set_cursor(Cursor{span.start_line, 0});
@@ -96,7 +97,7 @@ void execute_operator_linewise(OperatorKind op, size_t start_line, int count,
   ed.set_cursor(ed.offset_to_cursor(cursor_offset));
 }
 
-void execute_delete_char(int count, Editor& ed) {
+void execute_delete_char(int count, Editor& ed, char register_name) {
   size_t offset = ed.cursor_offset();
   size_t line_len = ed.current_line_length();
   size_t col = ed.cursor().col;
@@ -106,14 +107,14 @@ void execute_delete_char(int count, Editor& ed) {
     return;
   }
   std::string text = ed.buffer().text_range(offset, n);
-  ed.set_unnamed_register(text, false);
+  ed.set_register(register_name, text, false);
   ed.begin_undo_group();
   ed.erase_range(offset, n);
   ed.clamp_cursor_to_line();
 }
 
-void execute_paste(bool before, int count, Editor& ed) {
-  const RegisterContent& reg = ed.unnamed_register();
+void execute_paste(bool before, int count, Editor& ed, char register_name) {
+  const RegisterContent& reg = ed.register_content(register_name);
   if (reg.text.empty()) {
     return;
   }
@@ -130,9 +131,24 @@ void execute_paste(bool before, int count, Editor& ed) {
     Cursor c = ed.cursor();
     size_t total = ed.buffer().line_count();
     size_t target_line = before ? c.line : std::min(c.line + 1, total);
-    size_t offset = (target_line < total) ? ed.buffer().line_start_offset(target_line)
-                                           : ed.buffer().size();
-    ed.insert_text(offset, block);
+    if (target_line < total) {
+      ed.insert_text(ed.buffer().line_start_offset(target_line), block);
+    } else {
+      // Pasting past the last line of a buffer with no trailing newline:
+      // that line's text runs right up to buffer.size(), so a plain insert
+      // there would concatenate onto it instead of starting a new line.
+      // The pasted content becomes the new last line, so it keeps the
+      // file's "no trailing newline" convention rather than gaining one.
+      size_t offset = ed.buffer().size();
+      std::string to_insert = block;
+      if (!to_insert.empty() && to_insert.back() == '\n') {
+        to_insert.pop_back();
+      }
+      if (offset > 0) {
+        to_insert = "\n" + to_insert;
+      }
+      ed.insert_text(offset, to_insert);
+    }
     ed.set_cursor(Cursor{target_line, 0});
     return;
   }

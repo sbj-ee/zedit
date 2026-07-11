@@ -5,6 +5,7 @@ add_executable(zedit
   src/status_line.cpp
   src/input_map.cpp
   src/font_manager.cpp
+  src/tab_bar.cpp
 )
 
 target_link_libraries(zedit PRIVATE

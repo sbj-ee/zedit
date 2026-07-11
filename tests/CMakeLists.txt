@@ -7,6 +7,11 @@ add_executable(zedit_tests
   core/test_operator.cpp
   core/test_normal_mode_operators.cpp
   core/test_visual_mode.cpp
+  core/test_search.cpp
+  core/test_search_mode.cpp
+  core/test_named_registers.cpp
+  core/test_multi_buffer.cpp
+  core/test_dot_repeat.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
