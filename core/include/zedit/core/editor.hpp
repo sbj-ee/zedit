@@ -1,10 +1,12 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "zedit/core/cursor.hpp"
@@ -214,6 +216,15 @@ class Editor {
   const std::optional<std::string>& hover_text() const { return hover_text_; }
   void dismiss_hover() { hover_text_.reset(); }
 
+  // Options (set via a config script's zedit.set_option(), or the :lua
+  // command). Deliberately just one field rather than a generic key-value
+  // bag -- add more fields here as real options accumulate.
+  int tabstop() const { return tabstop_; }
+  void set_tabstop(int n) { tabstop_ = std::max(1, n); }
+  void set_normal_remap(const std::unordered_map<char, std::string>& remap) {
+    mode_sm_.set_normal_remap(remap);
+  }
+
  private:
   struct UndoEntry {
     PieceTable::Snapshot buffer_snapshot;
@@ -260,6 +271,7 @@ class Editor {
   // Editor::open_file()'s return value being moved into App's member).
   std::unique_ptr<LspManager> lsp_ = std::make_unique<LspManager>();
   std::optional<std::string> hover_text_;
+  int tabstop_ = 4;
 
   Window& cur_window() { return windows_[current_window_]; }
   const Window& cur_window() const { return windows_[current_window_]; }

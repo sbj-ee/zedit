@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 #include "zedit/core/cursor.hpp"
 #include "zedit/core/mode.hpp"
@@ -32,6 +33,20 @@ class ModeStateMachine {
   // used by the status line to render the prompt.
   const std::string& command_line_buffer() const { return command_line_buffer_; }
   char line_input_prefix() const { return line_input_prefix_; }
+
+  // Non-recursive Normal-mode key remapping (vim's :noremap, not :map),
+  // from a config script's zedit.map("n", lhs, rhs). Only applies to a
+  // key at the very start of a fresh command (no pending count/operator/
+  // register), matching the scope of a "minimal" scripting hook rather
+  // than vim's full remapping semantics (which also compose with counts
+  // and other pending state). Merges into any existing mappings rather
+  // than replacing them, so a later ":lua zedit.map(...)" call adds to
+  // -- rather than wiping out -- whatever the startup config set up.
+  void set_normal_remap(const std::unordered_map<char, std::string>& remap) {
+    for (const auto& [lhs, rhs] : remap) {
+      normal_remap_[lhs] = rhs;
+    }
+  }
 
  private:
   struct PendingCommand {
@@ -76,6 +91,8 @@ class ModeStateMachine {
   LastChange last_change_;
   std::optional<LastChange> pending_change_;
   std::string insert_session_text_;
+  std::unordered_map<char, std::string> normal_remap_;
+  bool replaying_remap_ = false;
 
   KeyResult handle_normal(KeyEvent ev, Editor& ed);
   KeyResult handle_insert(KeyEvent ev, Editor& ed);

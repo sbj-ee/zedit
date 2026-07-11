@@ -119,6 +119,42 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+# ---- Lua 5.4 ---------------------------------------------------------------
+# Upstream ships a plain Makefile, not a CMakeLists.txt, so (same approach as
+# Dear ImGui above) we hand-declare a target compiling its C sources
+# directly. Excludes lua.c/luac.c (the standalone `lua`/`luac` CLI mains) --
+# we only want the embeddable library. No platform defines (LUA_USE_LINUX
+# etc.) are set: those only enable optional dynamic-C-module loading via
+# require(), which zedit's config scripts never need.
+FetchContent_Declare(
+  lua
+  GIT_REPOSITORY https://github.com/lua/lua.git
+  GIT_TAG v5.4.7
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(lua)
+
+file(GLOB LUA_SOURCES ${lua_SOURCE_DIR}/*.c)
+# lua.c/luac.c are the standalone CLI mains (excluded above); onelua.c is an
+# alternate all-in-one build that #includes every other .c file itself, and
+# ltests.c is an internal debug/test module -- compiling either alongside
+# the normal per-file sources means duplicate global symbol definitions in
+# the same static library. That happened to still link here (the linker
+# never needed onelua.c.o's copies, so they just sat unused in the
+# archive), but relying on that is fragile across linkers/platforms, so
+# they're excluded explicitly rather than left to chance.
+list(REMOVE_ITEM LUA_SOURCES
+  ${lua_SOURCE_DIR}/lua.c
+  ${lua_SOURCE_DIR}/luac.c
+  ${lua_SOURCE_DIR}/onelua.c
+  ${lua_SOURCE_DIR}/ltests.c
+)
+add_library(lua STATIC ${LUA_SOURCES})
+target_include_directories(lua PUBLIC ${lua_SOURCE_DIR})
+if(UNIX)
+  target_link_libraries(lua PRIVATE m)
+endif()
+
 # ---- Catch2 (tests only) --------------------------------------------------
 if(ZEDIT_BUILD_TESTS)
   FetchContent_Declare(

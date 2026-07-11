@@ -63,6 +63,17 @@ ExCommand parse_ex_command(std::string_view input) {
     cmd.argument = std::string(rest);
     return cmd;
   }
+  constexpr std::string_view kLuaPrefix = "lua";
+  if (input.size() > kLuaPrefix.size() && input.substr(0, kLuaPrefix.size()) == kLuaPrefix &&
+      input[kLuaPrefix.size()] == ' ') {
+    ExCommand cmd{ExCommandKind::Lua, {}};
+    std::string_view rest = input.substr(kLuaPrefix.size());
+    while (!rest.empty() && rest.front() == ' ') {
+      rest.remove_prefix(1);
+    }
+    cmd.argument = std::string(rest);
+    return cmd;
+  }
   return ExCommand{ExCommandKind::Unknown};
 }
 

@@ -20,3 +20,13 @@ TEST_CASE("parse_ex_command rejects unknown commands", "[command_line]") {
   REQUIRE(parse_ex_command("bogus").kind == ExCommandKind::Unknown);
   REQUIRE(parse_ex_command("wqq").kind == ExCommandKind::Unknown);
 }
+
+TEST_CASE("parse_ex_command extracts the code for :lua", "[command_line]") {
+  auto cmd = parse_ex_command("lua zedit.set_option(\"tabstop\", 2)");
+  REQUIRE(cmd.kind == ExCommandKind::Lua);
+  REQUIRE(cmd.argument == "zedit.set_option(\"tabstop\", 2)");
+
+  // "lua" alone (no argument) isn't recognized -- matches :e and :diff,
+  // which also require the trailing space + argument to be recognized.
+  REQUIRE(parse_ex_command("lua").kind == ExCommandKind::Unknown);
+}

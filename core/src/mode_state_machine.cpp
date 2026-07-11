@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "zedit/core/command_line.hpp"
+#include "zedit/core/config.hpp"
 #include "zedit/core/editor.hpp"
 #include "zedit/core/file_io.hpp"
 #include "zedit/core/motion.hpp"
@@ -385,6 +386,20 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     return KeyResult{};
   }
 
+  if (!replaying_remap_ && pending_.count == 0) {
+    auto it = normal_remap_.find(ch);
+    if (it != normal_remap_.end()) {
+      std::string rhs = it->second;
+      reset_pending();
+      replaying_remap_ = true;
+      for (char rc : rhs) {
+        handle_key(KeyEvent{Key::Char, rc}, ed);
+      }
+      replaying_remap_ = false;
+      return KeyResult{};
+    }
+  }
+
   if (apply_plain_motion(ch, ed, repeat)) {
     reset_pending();
     return KeyResult{};
@@ -527,6 +542,11 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
   } else if (ev.key == Key::Char) {
     ed.insert_char(ev.ch);
     insert_session_text_.push_back(ev.ch);
+  } else if (ev.key == Key::Tab) {
+    for (int i = 0; i < ed.tabstop(); ++i) {
+      ed.insert_char(' ');
+      insert_session_text_.push_back(' ');
+    }
   }
   return KeyResult{};
 }
@@ -668,6 +688,23 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
         ed.diff_with(cmd.argument);
       }
       break;
+    case ExCommandKind::Lua: {
+      // Live scripting hook: runs the same zedit.set_option/map API the
+      // startup config uses. Color overrides are parsed too (ConfigResult
+      // always carries them) but not applied here -- core has no concept
+      // of a theme, only the frontend does, and the startup-only config
+      // load is the one place that bridges the two (see main.cpp). That's
+      // a deliberate scope cut, not an oversight.
+      ConfigResult result = eval_lua(cmd.argument);
+      if (result.options.tabstop.has_value()) {
+        ed.set_tabstop(*result.options.tabstop);
+      }
+      ed.set_normal_remap(result.normal_remap);
+      if (!result.errors.empty()) {
+        last_error_ = result.errors.front();
+      }
+      break;
+    }
     case ExCommandKind::Empty:
     case ExCommandKind::Unknown:
       break;

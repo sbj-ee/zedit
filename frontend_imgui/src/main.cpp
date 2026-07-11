@@ -4,9 +4,12 @@
 #include <imgui_impl_opengl3.h>
 
 #include <cstdio>
+#include <utility>
 
 #include "app.hpp"
 #include "font_manager.hpp"
+#include "theme.hpp"
+#include "zedit/core/config.hpp"
 #include "zedit/core/editor.hpp"
 #include "zedit/core/file_io.hpp"
 
@@ -28,6 +31,22 @@ zedit::core::Editor make_editor(int argc, char** argv) {
     zedit::core::Editor ed;
     ed.set_filename(argv[1]);
     return ed;
+  }
+}
+
+// Loaded once at startup, applied to the editor and the frontend theme.
+// Lua errors are printed but never abort startup -- a broken config
+// shouldn't leave the user unable to open the editor to go fix it.
+void apply_config(zedit::core::Editor& editor) {
+  zedit::core::ConfigResult config =
+      zedit::core::load_config_file(zedit::core::default_config_path());
+  if (config.options.tabstop.has_value()) {
+    editor.set_tabstop(*config.options.tabstop);
+  }
+  editor.set_normal_remap(config.normal_remap);
+  zedit::frontend::apply_color_overrides(config.colors);
+  for (const std::string& err : config.errors) {
+    std::fprintf(stderr, "zedit: config error: %s\n", err.c_str());
   }
 }
 
@@ -66,7 +85,9 @@ int main(int argc, char** argv) {
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init(glsl_version);
 
-  zedit::frontend::App app(make_editor(argc, argv), font);
+  zedit::core::Editor editor = make_editor(argc, argv);
+  apply_config(editor);
+  zedit::frontend::App app(std::move(editor), font);
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();

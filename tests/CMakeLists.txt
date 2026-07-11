@@ -25,6 +25,8 @@ add_executable(zedit_tests
   core/test_json_rpc_transport.cpp
   core/test_lsp_clangd.cpp
   core/test_editor_lsp.cpp
+  core/test_config.cpp
+  core/test_config_integration.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
