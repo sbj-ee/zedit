@@ -2,11 +2,13 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "zedit/core/cursor.hpp"
+#include "zedit/core/diff.hpp"
 #include "zedit/core/highlight.hpp"
 #include "zedit/core/mode.hpp"
 #include "zedit/core/mode_state_machine.hpp"
@@ -15,16 +17,25 @@
 
 namespace zedit::core {
 
+enum class SplitLayout { Single, Stacked, SideBySide };
+
 // Facade tying the buffer, cursor, and modal state machine together. This is
 // the API surface both the GUI frontend and headless unit tests drive.
 //
-// Editor can hold multiple open buffers (:e, :bn, :bp); every method below
-// that touches "the buffer" -- buffer(), cursor(), filename(), dirty(),
-// save(), undo()/redo(), etc. -- operates on whichever one is current, so
-// existing callers (ModeStateMachine, the operator functions, the frontend)
-// needed no changes when multi-buffer support was added. Registers, search
-// state, and the modal state machine are shared across buffers, matching
-// vim: switching buffers doesn't clear your registers or last search.
+// Editor can hold multiple open buffers (:e, :bn, :bp) and multiple windows
+// (:sp, :vsp) -- a window is a viewport (cursor position) onto some buffer;
+// several windows can view the same buffer independently, or different
+// buffers. Every method below that touches "the buffer" or "the cursor" --
+// buffer(), cursor(), filename(), dirty(), save(), undo()/redo(), etc. --
+// operates on whichever window/buffer is current, so existing callers
+// (ModeStateMachine, the operator functions, the frontend) needed no
+// changes when multi-buffer or multi-window support was added: the
+// frontend renders N panes by temporarily calling set_current_window(i)
+// for each one and reusing the same single-window rendering code. Undo
+// history and the syntax highlighter live on the buffer (shared by every
+// window viewing it); the cursor lives on the window. Registers, search
+// state, and the modal state machine are shared across everything,
+// matching vim: switching buffers or windows doesn't clear your registers.
 class Editor {
  public:
   Editor() = default;
@@ -32,11 +43,11 @@ class Editor {
 
   KeyResult handle_key(KeyEvent ev) { return mode_sm_.handle_key(ev, *this); }
 
-  PieceTable& buffer() { return cur().content; }
-  const PieceTable& buffer() const { return cur().content; }
+  PieceTable& buffer() { return cur_buffer().content; }
+  const PieceTable& buffer() const { return cur_buffer().content; }
 
-  Cursor cursor() const { return cur().cursor; }
-  void set_cursor(Cursor c) { cur().cursor = c; }
+  Cursor cursor() const { return cur_window().cursor; }
+  void set_cursor(Cursor c) { cur_window().cursor = c; }
   size_t cursor_offset() const;
   Cursor offset_to_cursor(size_t offset) const;
 
@@ -48,12 +59,12 @@ class Editor {
   const std::string& last_error() const { return mode_sm_.last_error(); }
   Cursor visual_anchor() const { return mode_sm_.visual_anchor(); }
 
-  const std::string& filename() const { return cur().filename; }
+  const std::string& filename() const { return cur_buffer().filename; }
   // Also re-picks the syntax highlighter to match the new filename's
   // extension (e.g. starting an empty buffer destined for "foo.cpp").
   void set_filename(std::string path);
 
-  bool dirty() const { return cur().dirty; }
+  bool dirty() const { return cur_buffer().dirty; }
   bool should_quit() const { return should_quit_; }
   void request_quit() { should_quit_ = true; }
 
@@ -106,7 +117,7 @@ class Editor {
   // begin_undo_group() before mutating; undo()/redo() restore snapshots.
   // Because PieceTable snapshots are just the piece list (see
   // PieceTable::Snapshot), this is cheap regardless of document size. Undo
-  // history is per-buffer, like vim.
+  // history is per-buffer, like vim, shared by every window viewing it.
   void begin_undo_group();
   void undo();
   void redo();
@@ -127,9 +138,11 @@ class Editor {
   // Multiple buffers (:e, :bn, :bp, :ls). Opening a path that's already
   // open just switches to it rather than duplicating it; opening a path
   // that doesn't exist on disk yet starts an empty buffer with that name,
-  // matching vim's ":e newfile.txt".
+  // matching vim's ":e newfile.txt". These act on the CURRENT WINDOW's
+  // buffer assignment; other windows viewing a different buffer are
+  // unaffected.
   size_t buffer_count() const { return buffers_.size(); }
-  size_t current_buffer_index() const { return current_; }
+  size_t current_buffer_index() const { return cur_window().buffer_index; }
   const std::string& buffer_filename(size_t index) const {
     return buffers_[index].filename;
   }
@@ -143,12 +156,44 @@ class Editor {
   // different open files can be different languages). Defaults to a
   // PlainHighlighter; callers that know the file type (e.g. Editor's own
   // open_file/open_buffer, by extension) can install a real one.
-  Highlighter& highlighter() { return *cur().highlighter; }
-  const Highlighter& highlighter() const { return *cur().highlighter; }
+  Highlighter& highlighter() { return *cur_buffer().highlighter; }
+  const Highlighter& highlighter() const { return *cur_buffer().highlighter; }
   void set_highlighter(std::unique_ptr<Highlighter> h) {
-    cur().highlighter = std::move(h);
-    cur().highlighter->set_text(buffer().to_string());
+    cur_buffer().highlighter = std::move(h);
+    cur_buffer().highlighter->set_text(buffer().to_string());
   }
+
+  // Windows (:sp, :vsp, Ctrl-W). A window is a cursor position onto some
+  // buffer; splitting duplicates the current window (same buffer, same
+  // cursor) so both start out looking at the same place. Only one uniform
+  // orientation is supported at a time -- the first split in a session
+  // fixes it, and later splits (regardless of :sp vs :vsp) join that same
+  // row/column rather than nesting into a general split tree. That's a
+  // deliberate scope cut: it covers the common "N panes side by side" or
+  // "N panes stacked" cases without the complexity of arbitrary nested
+  // layouts.
+  size_t window_count() const { return windows_.size(); }
+  size_t current_window_index() const { return current_window_; }
+  void set_current_window(size_t index) {
+    if (index < windows_.size()) current_window_ = index;
+  }
+  SplitLayout split_layout() const { return split_layout_; }
+  void split_horizontal();  // :sp -- stacked (top/bottom) panes
+  void split_vertical();    // :vsp -- side-by-side (left/right) panes
+  void next_window();       // Ctrl-W -- cycles focus
+  void close_window();      // :close
+
+  // Compare-files (:diff <path>). Vertically splits and opens `path`
+  // alongside the current buffer, then marks the pair for side-by-side
+  // diff coloring. The diff is recomputed on demand (see
+  // diff_status_for_window), not cached -- an O(N*M) LCS per call, which
+  // is fine for the modest file sizes this is meant for, at the cost of
+  // being wasteful to call every frame for huge files.
+  void diff_with(const std::string& path);
+  bool is_diffing() const { return diff_pair_.has_value(); }
+  // The diff status for each line of the buffer shown in window
+  // `window_index`, or empty if that window isn't part of the active diff.
+  std::vector<DiffLineStatus> diff_status_for_window(size_t window_index) const;
 
  private:
   struct UndoEntry {
@@ -158,16 +203,32 @@ class Editor {
 
   struct Buffer {
     PieceTable content;
-    Cursor cursor;
     std::string filename;
     bool dirty = false;
     std::vector<UndoEntry> undo_stack;
     std::vector<UndoEntry> redo_stack;
     std::unique_ptr<Highlighter> highlighter = std::make_unique<PlainHighlighter>();
+    // Where a window's cursor was the last time it looked at this buffer,
+    // so switching back to it (via :e, :bn/:bp, or a tab click) returns
+    // you to where you left off, matching vim.
+    Cursor last_cursor;
+  };
+
+  struct Window {
+    size_t buffer_index = 0;
+    Cursor cursor;
+  };
+
+  struct DiffPair {
+    size_t buffer_a;
+    size_t buffer_b;
   };
 
   std::vector<Buffer> buffers_ = std::vector<Buffer>(1);
-  size_t current_ = 0;
+  std::vector<Window> windows_ = std::vector<Window>(1);
+  size_t current_window_ = 0;
+  SplitLayout split_layout_ = SplitLayout::Single;
+  std::optional<DiffPair> diff_pair_;
   ModeStateMachine mode_sm_;
   bool should_quit_ = false;
   RegisterContent unnamed_register_;
@@ -175,11 +236,15 @@ class Editor {
   std::string last_search_pattern_;
   bool last_search_forward_ = true;
 
-  Buffer& cur() { return buffers_[current_]; }
-  const Buffer& cur() const { return buffers_[current_]; }
+  Window& cur_window() { return windows_[current_window_]; }
+  const Window& cur_window() const { return windows_[current_window_]; }
+  Buffer& cur_buffer() { return buffers_[cur_window().buffer_index]; }
+  const Buffer& cur_buffer() const { return buffers_[cur_window().buffer_index]; }
+  void do_split(SplitLayout requested);
+  void switch_window_to_buffer(size_t index);
   void mark_dirty() {
-    cur().dirty = true;
-    cur().highlighter->set_text(cur().content.to_string());
+    cur_buffer().dirty = true;
+    cur_buffer().highlighter->set_text(cur_buffer().content.to_string());
   }
 };
 

@@ -11,14 +11,14 @@ namespace zedit::core {
 
 Editor Editor::open_file(const std::string& path) {
   Editor ed;
-  ed.cur().content = PieceTable(read_file(path));
+  ed.cur_buffer().content = PieceTable(read_file(path));
   ed.set_filename(path);
   return ed;
 }
 
 void Editor::set_filename(std::string path) {
-  cur().filename = std::move(path);
-  set_highlighter(make_highlighter_for_filename(cur().filename));
+  cur_buffer().filename = std::move(path);
+  set_highlighter(make_highlighter_for_filename(cur_buffer().filename));
 }
 
 size_t Editor::cursor_offset() const {
@@ -37,33 +37,33 @@ size_t Editor::current_line_length() const {
 void Editor::clamp_cursor_to_line() {
   size_t len = current_line_length();
   size_t max_col = (mode() == Mode::Insert) ? len : (len > 0 ? len - 1 : 0);
-  cur().cursor.col = std::min(cur().cursor.col, max_col);
+  cur_window().cursor.col = std::min(cur_window().cursor.col, max_col);
 }
 
 void Editor::move_left() {
-  if (cur().cursor.col > 0) {
-    --cur().cursor.col;
+  if (cur_window().cursor.col > 0) {
+    --cur_window().cursor.col;
   }
 }
 
 void Editor::move_right() {
   size_t len = current_line_length();
   size_t max_col = (mode() == Mode::Insert) ? len : (len > 0 ? len - 1 : 0);
-  if (cur().cursor.col < max_col) {
-    ++cur().cursor.col;
+  if (cur_window().cursor.col < max_col) {
+    ++cur_window().cursor.col;
   }
 }
 
 void Editor::move_up() {
-  if (cur().cursor.line > 0) {
-    --cur().cursor.line;
+  if (cur_window().cursor.line > 0) {
+    --cur_window().cursor.line;
   }
   clamp_cursor_to_line();
 }
 
 void Editor::move_down() {
-  if (cur().cursor.line + 1 < buffer().line_count()) {
-    ++cur().cursor.line;
+  if (cur_window().cursor.line + 1 < buffer().line_count()) {
+    ++cur_window().cursor.line;
   }
   clamp_cursor_to_line();
 }
@@ -72,44 +72,44 @@ void Editor::insert_char(char c) {
   size_t offset = cursor_offset();
   if (c == '\n') {
     buffer().insert(offset, "\n");
-    ++cur().cursor.line;
-    cur().cursor.col = 0;
+    ++cur_window().cursor.line;
+    cur_window().cursor.col = 0;
   } else {
     buffer().insert(offset, std::string_view(&c, 1));
-    ++cur().cursor.col;
+    ++cur_window().cursor.col;
   }
   mark_dirty();
 }
 
 void Editor::backspace() {
-  if (cur().cursor.col > 0) {
+  if (cur_window().cursor.col > 0) {
     size_t offset = cursor_offset();
     buffer().erase(offset - 1, 1);
-    --cur().cursor.col;
+    --cur_window().cursor.col;
     mark_dirty();
-  } else if (cur().cursor.line > 0) {
-    size_t prev_line = cur().cursor.line - 1;
+  } else if (cur_window().cursor.line > 0) {
+    size_t prev_line = cur_window().cursor.line - 1;
     size_t prev_len = buffer().line_text(prev_line).size();
-    size_t newline_offset = buffer().line_start_offset(cur().cursor.line) - 1;
+    size_t newline_offset = buffer().line_start_offset(cur_window().cursor.line) - 1;
     buffer().erase(newline_offset, 1);
-    cur().cursor.line = prev_line;
-    cur().cursor.col = prev_len;
+    cur_window().cursor.line = prev_line;
+    cur_window().cursor.col = prev_len;
     mark_dirty();
   }
 }
 
 void Editor::open_line_below() {
-  size_t offset = buffer().line_start_offset(cur().cursor.line) + current_line_length();
+  size_t offset = buffer().line_start_offset(cur_window().cursor.line) + current_line_length();
   buffer().insert(offset, "\n");
-  ++cur().cursor.line;
-  cur().cursor.col = 0;
+  ++cur_window().cursor.line;
+  cur_window().cursor.col = 0;
   mark_dirty();
 }
 
 void Editor::open_line_above() {
-  size_t offset = buffer().line_start_offset(cur().cursor.line);
+  size_t offset = buffer().line_start_offset(cur_window().cursor.line);
   buffer().insert(offset, "\n");
-  cur().cursor.col = 0;
+  cur_window().cursor.col = 0;
   mark_dirty();
 }
 
@@ -118,7 +118,7 @@ void Editor::save() {
     throw FileIoError("no filename set");
   }
   write_file(filename(), buffer().to_string());
-  cur().dirty = false;
+  cur_buffer().dirty = false;
 }
 
 void Editor::save_as(const std::string& path) {
@@ -157,56 +157,68 @@ bool Editor::jump_to_search(bool forward) {
 }
 
 void Editor::begin_undo_group() {
-  cur().undo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
-  cur().redo_stack.clear();
+  cur_buffer().undo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
+  cur_buffer().redo_stack.clear();
 }
 
 void Editor::undo() {
-  if (cur().undo_stack.empty()) {
+  if (cur_buffer().undo_stack.empty()) {
     return;
   }
-  cur().redo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
-  UndoEntry entry = std::move(cur().undo_stack.back());
-  cur().undo_stack.pop_back();
+  cur_buffer().redo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
+  UndoEntry entry = std::move(cur_buffer().undo_stack.back());
+  cur_buffer().undo_stack.pop_back();
   buffer().restore(std::move(entry.buffer_snapshot));
-  cur().cursor = entry.cursor;
+  cur_window().cursor = entry.cursor;
   mark_dirty();
 }
 
 void Editor::redo() {
-  if (cur().redo_stack.empty()) {
+  if (cur_buffer().redo_stack.empty()) {
     return;
   }
-  cur().undo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
-  UndoEntry entry = std::move(cur().redo_stack.back());
-  cur().redo_stack.pop_back();
+  cur_buffer().undo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
+  UndoEntry entry = std::move(cur_buffer().redo_stack.back());
+  cur_buffer().redo_stack.pop_back();
   buffer().restore(std::move(entry.buffer_snapshot));
-  cur().cursor = entry.cursor;
+  cur_window().cursor = entry.cursor;
   mark_dirty();
+}
+
+void Editor::switch_window_to_buffer(size_t index) {
+  cur_buffer().last_cursor = cur_window().cursor;
+  cur_window().buffer_index = index;
+
+  Cursor restored = buffers_[index].last_cursor;
+  size_t line_count = buffers_[index].content.line_count();
+  size_t max_line = line_count > 0 ? line_count - 1 : 0;
+  restored.line = std::min(restored.line, max_line);
+  cur_window().cursor = restored;
+  clamp_cursor_to_line();
 }
 
 void Editor::switch_to_buffer(size_t index) {
   if (index < buffers_.size()) {
-    current_ = index;
+    switch_window_to_buffer(index);
   }
 }
 
 void Editor::next_buffer() {
   if (!buffers_.empty()) {
-    current_ = (current_ + 1) % buffers_.size();
+    switch_window_to_buffer((cur_window().buffer_index + 1) % buffers_.size());
   }
 }
 
 void Editor::prev_buffer() {
   if (!buffers_.empty()) {
-    current_ = (current_ + buffers_.size() - 1) % buffers_.size();
+    switch_window_to_buffer((cur_window().buffer_index + buffers_.size() - 1) % buffers_.size());
   }
 }
 
 void Editor::open_buffer(const std::string& path) {
   for (size_t i = 0; i < buffers_.size(); ++i) {
     if (buffers_[i].filename == path) {
-      current_ = i;
+      switch_window_to_buffer(i);
       return;
     }
   }
@@ -218,8 +230,74 @@ void Editor::open_buffer(const std::string& path) {
     // New file: start empty, same as vim's ":e newfile.txt".
   }
   buffers_.push_back(std::move(buf));
-  current_ = buffers_.size() - 1;
+  switch_window_to_buffer(buffers_.size() - 1);
   set_filename(path);
+}
+
+void Editor::do_split(SplitLayout requested) {
+  if (split_layout_ == SplitLayout::Single) {
+    split_layout_ = requested;
+  }
+  Window new_window = windows_[current_window_];
+  windows_.insert(windows_.begin() + static_cast<std::ptrdiff_t>(current_window_) + 1,
+                   new_window);
+  ++current_window_;
+}
+
+void Editor::split_horizontal() { do_split(SplitLayout::Stacked); }
+void Editor::split_vertical() { do_split(SplitLayout::SideBySide); }
+
+void Editor::next_window() {
+  if (!windows_.empty()) {
+    current_window_ = (current_window_ + 1) % windows_.size();
+  }
+}
+
+void Editor::close_window() {
+  if (windows_.size() <= 1) {
+    return;
+  }
+  windows_.erase(windows_.begin() + static_cast<std::ptrdiff_t>(current_window_));
+  if (current_window_ >= windows_.size()) {
+    current_window_ = windows_.size() - 1;
+  }
+  if (windows_.size() == 1) {
+    split_layout_ = SplitLayout::Single;
+  }
+}
+
+namespace {
+std::vector<std::string> buffer_lines(const PieceTable& content) {
+  std::vector<std::string> lines;
+  size_t count = content.line_count();
+  lines.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    lines.push_back(content.line_text(i));
+  }
+  return lines;
+}
+}  // namespace
+
+void Editor::diff_with(const std::string& path) {
+  size_t original_buffer = cur_window().buffer_index;
+  split_vertical();
+  open_buffer(path);
+  size_t other_buffer = cur_window().buffer_index;
+  diff_pair_ = DiffPair{original_buffer, other_buffer};
+}
+
+std::vector<DiffLineStatus> Editor::diff_status_for_window(size_t window_index) const {
+  if (!diff_pair_ || window_index >= windows_.size()) {
+    return {};
+  }
+  size_t buf_index = windows_[window_index].buffer_index;
+  if (buf_index != diff_pair_->buffer_a && buf_index != diff_pair_->buffer_b) {
+    return {};
+  }
+
+  DiffResult result = diff_lines(buffer_lines(buffers_[diff_pair_->buffer_a].content),
+                                  buffer_lines(buffers_[diff_pair_->buffer_b].content));
+  return (buf_index == diff_pair_->buffer_a) ? result.left : result.right;
 }
 
 }  // namespace zedit::core

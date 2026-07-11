@@ -7,17 +7,43 @@
 #include <vector>
 
 #include "theme.hpp"
+#include "zedit/core/diff.hpp"
 #include "zedit/core/highlight.hpp"
 
 namespace zedit::frontend {
 
 using zedit::core::Cursor;
+using zedit::core::DiffLineStatus;
 using zedit::core::Editor;
 using zedit::core::HighlightSpan;
 using zedit::core::Mode;
 using zedit::core::PieceTable;
 
 namespace {
+
+// Full-width per-line background for :diff mode -- added lines get a
+// green tint, removed (relative to the other side) a red one. Drawn
+// before the text so the colored text still reads clearly on top.
+void draw_diff_backgrounds(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
+                            size_t first_visible_line, size_t last_visible_line, float pane_width,
+                            float line_height) {
+  if (!ed.is_diffing()) {
+    return;
+  }
+  std::vector<DiffLineStatus> statuses = ed.diff_status_for_window(ed.current_window_index());
+  for (size_t line = first_visible_line; line < last_visible_line && line < statuses.size();
+       ++line) {
+    DiffLineStatus status = statuses[line];
+    if (status == DiffLineStatus::Unchanged) {
+      continue;
+    }
+    ImU32 color = (status == DiffLineStatus::Added) ? IM_COL32(60, 130, 70, 90)
+                                                      : IM_COL32(150, 60, 60, 90);
+    float y = origin.y + static_cast<float>(line - first_visible_line) * line_height;
+    draw_list->AddRectFilled(ImVec2(origin.x, y), ImVec2(origin.x + pane_width, y + line_height),
+                              color);
+  }
+}
 
 void draw_selection(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
                      size_t first_visible_line, size_t last_visible_line,
@@ -51,19 +77,19 @@ void draw_selection(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
   }
 }
 
-void handle_mouse_click(Editor& ed, ImVec2 origin, size_t first_visible_line,
+bool handle_mouse_click(Editor& ed, ImVec2 origin, size_t first_visible_line,
                          size_t total_lines, float char_width, float line_height) {
   if (!ImGui::IsWindowHovered() || !ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-    return;
+    return false;
   }
   if (total_lines == 0 || char_width <= 0.0f || line_height <= 0.0f) {
-    return;
+    return false;
   }
   ImVec2 mouse = ImGui::GetMousePos();
   float rel_x = mouse.x - origin.x;
   float rel_y = mouse.y - origin.y;
   if (rel_x < 0.0f || rel_y < 0.0f) {
-    return;
+    return false;
   }
 
   size_t clicked_line = first_visible_line + static_cast<size_t>(rel_y / line_height);
@@ -75,6 +101,7 @@ void handle_mouse_click(Editor& ed, ImVec2 origin, size_t first_visible_line,
   col = std::min(col, max_col);
 
   ed.set_cursor(Cursor{clicked_line, col});
+  return true;
 }
 
 // Draws one line's text as a sequence of colored segments, splitting at
@@ -133,7 +160,7 @@ void TextView::scroll_to_keep_cursor_visible(const Editor& ed,
   }
 }
 
-void TextView::render(Editor& ed, ImFont* font, float height) {
+bool TextView::render(Editor& ed, ImFont* font, float height, float width) {
   ImGui::PushFont(font);
 
   ImVec2 char_size = ImGui::CalcTextSize("M");
@@ -147,7 +174,7 @@ void TextView::render(Editor& ed, ImFont* font, float height) {
 
   scroll_to_keep_cursor_visible(ed, visible_lines);
 
-  ImGui::BeginChild("zedit_text_view", ImVec2(0, height), true,
+  ImGui::BeginChild("zedit_text_view", ImVec2(width, height), true,
                      ImGuiWindowFlags_NoScrollbar |
                          ImGuiWindowFlags_NoScrollWithMouse);
 
@@ -158,8 +185,11 @@ void TextView::render(Editor& ed, ImFont* font, float height) {
   size_t total_lines = buf.line_count();
   size_t last_line = std::min(first_visible_line_ + visible_lines, total_lines);
 
-  handle_mouse_click(ed, origin, first_visible_line_, total_lines, char_width, line_height);
+  bool clicked = handle_mouse_click(ed, origin, first_visible_line_, total_lines, char_width,
+                                     line_height);
 
+  draw_diff_backgrounds(draw_list, ed, origin, first_visible_line_, last_line,
+                         ImGui::GetWindowSize().x, line_height);
   draw_selection(draw_list, ed, origin, first_visible_line_, last_line, char_width, line_height);
 
   size_t viewport_start_byte = buf.line_start_offset(first_visible_line_);
@@ -188,6 +218,7 @@ void TextView::render(Editor& ed, ImFont* font, float height) {
 
   ImGui::EndChild();
   ImGui::PopFont();
+  return clicked;
 }
 
 }  // namespace zedit::frontend

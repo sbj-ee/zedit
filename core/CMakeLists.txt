@@ -10,6 +10,7 @@ add_library(zedit_core STATIC
   src/editor.cpp
   src/treesitter_highlighter.cpp
   src/languages.cpp
+  src/diff.cpp
 )
 
 target_include_directories(zedit_core PUBLIC

@@ -17,6 +17,7 @@ enum class Key {
   Up,
   Down,
   CtrlR,
+  CtrlW,
   Unknown,
 };
 

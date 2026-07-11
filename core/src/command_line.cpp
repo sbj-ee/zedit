@@ -34,9 +34,29 @@ ExCommand parse_ex_command(std::string_view input) {
   if (input == "ls") {
     return ExCommand{ExCommandKind::ListBuffers};
   }
+  if (input == "sp") {
+    return ExCommand{ExCommandKind::SplitHorizontal};
+  }
+  if (input == "vsp" || input == "vs") {
+    return ExCommand{ExCommandKind::SplitVertical};
+  }
+  if (input == "close" || input == "clo") {
+    return ExCommand{ExCommandKind::CloseWindow};
+  }
   if (input[0] == 'e' && (input.size() == 1 || input[1] == ' ')) {
     ExCommand cmd{ExCommandKind::Edit, {}};
     std::string_view rest = input.substr(1);
+    while (!rest.empty() && rest.front() == ' ') {
+      rest.remove_prefix(1);
+    }
+    cmd.argument = std::string(rest);
+    return cmd;
+  }
+  constexpr std::string_view kDiffPrefix = "diff";
+  if (input.size() > kDiffPrefix.size() && input.substr(0, kDiffPrefix.size()) == kDiffPrefix &&
+      input[kDiffPrefix.size()] == ' ') {
+    ExCommand cmd{ExCommandKind::Diff, {}};
+    std::string_view rest = input.substr(kDiffPrefix.size());
     while (!rest.empty() && rest.front() == ' ') {
       rest.remove_prefix(1);
     }

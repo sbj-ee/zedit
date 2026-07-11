@@ -13,7 +13,10 @@ namespace zedit::frontend {
 // O(file size), regardless of how large the open file is.
 class TextView {
  public:
-  void render(zedit::core::Editor& ed, ImFont* font, float height);
+  // width == 0 means "fill available width" (the single-pane/stacked-split
+  // case); an explicit width is used for side-by-side panes. Returns true
+  // if the pane was clicked this frame, so callers can give it focus.
+  bool render(zedit::core::Editor& ed, ImFont* font, float height, float width = 0.0f);
 
  private:
   size_t first_visible_line_ = 0;

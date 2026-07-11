@@ -322,6 +322,11 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     reset_pending();
     return KeyResult{};
   }
+  if (ev.key == Key::CtrlW) {
+    ed.next_window();
+    reset_pending();
+    return KeyResult{};
+  }
 
   int repeat = pending_.count > 0 ? pending_.count : 1;
 
@@ -631,6 +636,22 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
     case ExCommandKind::ListBuffers:
       // The buffer list itself is rendered by the frontend (tab bar); this
       // command has nothing further to do at the core layer.
+      break;
+    case ExCommandKind::SplitHorizontal:
+      ed.split_horizontal();
+      break;
+    case ExCommandKind::SplitVertical:
+      ed.split_vertical();
+      break;
+    case ExCommandKind::CloseWindow:
+      ed.close_window();
+      break;
+    case ExCommandKind::Diff:
+      if (cmd.argument.empty()) {
+        last_error_ = "no file name";
+      } else {
+        ed.diff_with(cmd.argument);
+      }
       break;
     case ExCommandKind::Empty:
     case ExCommandKind::Unknown:
