@@ -3,7 +3,9 @@ cmake_minimum_required(VERSION 3.21)
 # scanner.c) are compiled directly as part of this project (see
 # cmake/TreeSitterGrammar.cmake), not via a subproject with its own C-only
 # project() call.
-project(zedit CXX C)
+# VERSION is kept in sync with core/include/zedit/core/version.hpp by
+# hand (no generation step) -- update both together on a version bump.
+project(zedit VERSION 0.1.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,3 +27,5 @@ if(ZEDIT_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()
+
+include(cmake/Packaging.cmake)
