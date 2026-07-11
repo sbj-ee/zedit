@@ -261,6 +261,12 @@ void Editor::open_buffer(const std::string& path) {
   Buffer buf;
   try {
     buf.content = PieceTable(read_file(path));
+  } catch (const FileTooLargeError&) {
+    // Propagate to the caller rather than falling through to the "new
+    // file" handling below: silently substituting an empty buffer here
+    // would still attach the real file's name to it, so a later save
+    // would overwrite the original (huge) file with nothing.
+    throw;
   } catch (const FileIoError&) {
     // New file: start empty, same as vim's ":e newfile.txt".
   }

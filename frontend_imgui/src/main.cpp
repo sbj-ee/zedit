@@ -86,6 +86,12 @@ zedit::core::Editor make_editor(int argc, char** argv) {
   }
   try {
     return zedit::core::Editor::open_file(argv[1]);
+  } catch (const zedit::core::FileTooLargeError& e) {
+    // Deliberately does NOT set_filename(argv[1]) here, unlike the
+    // FileIoError case below -- attaching the huge file's name to this
+    // empty buffer would let a later save silently overwrite it.
+    std::fprintf(stderr, "zedit: %s (starting with an empty, unnamed buffer)\n", e.what());
+    return zedit::core::Editor();
   } catch (const zedit::core::FileIoError& e) {
     std::fprintf(stderr, "zedit: %s (starting with an empty buffer)\n",
                  e.what());

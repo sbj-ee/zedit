@@ -10,6 +10,8 @@
 #include <system_error>
 #include <vector>
 
+#include "zedit/core/file_io.hpp"
+
 namespace zedit::frontend {
 
 namespace fs = std::filesystem;
@@ -49,6 +51,7 @@ void render_open_file_popup(Editor& ed) {
   static fs::path current_dir;
   static std::array<char, 1024> path_buf{};
   static bool initialized = false;
+  static std::string error_message;
 
   if (!ImGui::BeginPopupModal("Open File", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     // Not open (or just closed) this frame -- reset so the next time it
@@ -68,6 +71,7 @@ void render_open_file_popup(Editor& ed) {
     fs::path canonical = fs::canonical(start, ec);
     current_dir = ec ? fs::current_path() : canonical;
     path_buf[0] = '\0';
+    error_message.clear();
     initialized = true;
   }
 
@@ -105,7 +109,18 @@ void render_open_file_popup(Editor& ed) {
   bool cancelled = ImGui::Button("Cancel");
 
   if (confirmed && path_buf[0] != '\0') {
-    ed.open_buffer(path_buf.data());
+    try {
+      ed.open_buffer(path_buf.data());
+      error_message.clear();
+    } catch (const zedit::core::FileTooLargeError& e) {
+      // Keep the popup open so the message is actually visible instead
+      // of vanishing the instant it appears.
+      error_message = e.what();
+      confirmed = false;
+    }
+  }
+  if (!error_message.empty()) {
+    ImGui::TextColored(ImVec4(0.9f, 0.35f, 0.35f, 1.0f), "%s", error_message.c_str());
   }
   if (confirmed || cancelled) {
     path_buf[0] = '\0';

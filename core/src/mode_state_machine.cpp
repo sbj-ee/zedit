@@ -734,7 +734,11 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
       if (cmd.argument.empty()) {
         last_error_ = "no file name";
       } else {
-        ed.open_buffer(cmd.argument);
+        try {
+          ed.open_buffer(cmd.argument);
+        } catch (const FileTooLargeError& e) {
+          last_error_ = e.what();
+        }
       }
       break;
     case ExCommandKind::NextBuffer:
