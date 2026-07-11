@@ -4,8 +4,11 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <functional>
 #include <string>
+#include <vector>
 
+#include "command_palette.hpp"
 #include "file_dialog.hpp"
 #include "file_finder.hpp"
 #include "find_replace_dialog.hpp"
@@ -92,6 +95,14 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   bool find_replace_requested = false;
   bool find_file_requested = false;
   bool compare_with_requested = false;
+  // Ctrl+Shift+P, guarded so it can't stack a second popup on top of one
+  // already open (unlike a MenuItem click, a raw keyboard check isn't
+  // blocked by ImGui's own modal-interaction gating).
+  bool any_popup_open =
+      ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+  bool command_palette_requested =
+      !any_popup_open && ImGui::IsKeyDown(ImGuiMod_Ctrl) && ImGui::IsKeyDown(ImGuiMod_Shift) &&
+      ImGui::IsKeyPressed(ImGuiKey_P, false);
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("File")) {
@@ -167,6 +178,9 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       if (ImGui::MenuItem("Find and Replace...")) {
         find_replace_requested = true;
       }
+      if (ImGui::MenuItem("Command Palette...", "Ctrl+Shift+P")) {
+        command_palette_requested = true;
+      }
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("View")) {
@@ -227,6 +241,64 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
     }
 
     ImGui::EndMainMenuBar();
+  }
+
+  if (command_palette_requested) {
+    ImGui::OpenPopup("Command Palette");
+  }
+
+  // Built fresh each frame (cheap: a few dozen small structs) rather
+  // than cached, so a command's captured state (e.g. word_wrap's current
+  // value) is never stale. Each entry's action reuses the exact same
+  // code path its menu item above already runs -- for the ones that open
+  // another popup (Open..., Save As..., Find File..., Compare With...,
+  // Find and Replace...), that means setting the same local "requested"
+  // bool, letting the "if ([x]_requested) OpenPopup(...)" checks below
+  // handle it uniformly rather than duplicating popup-opening logic here.
+  // Crucially, this whole block -- and the resulting action() call --
+  // must run *before* those checks, not after: a command confirmed this
+  // frame needs its "requested" bool set in time for this same frame's
+  // check to see it, or the OpenPopup call is missed entirely (the bool
+  // gets reset to false at the top of next frame regardless).
+  std::vector<Command> commands = {
+      {"New", "", [&ed] { ed.open_buffer(""); }},
+      {"Open...", "", [&open_requested] { open_requested = true; }},
+      {"Find File...", "", [&find_file_requested] { find_file_requested = true; }},
+      {"Save", "Ctrl+S",
+       [&ed] {
+         try {
+           ed.save();
+         } catch (const FileIoError&) {
+         }
+       }},
+      {"Save As...", "", [&save_as_requested] { save_as_requested = true; }},
+      {"Quit", "", [&ed] { ed.request_quit(); }},
+      {"Undo", "u", [&ed] { ed.undo(); }},
+      {"Redo", "Ctrl+R", [&ed] { ed.redo(); }},
+      {"Cut", "Ctrl+X", [&ed] { ed.handle_key(KeyEvent{Key::CtrlX, 0}); }},
+      {"Copy", "Ctrl+C", [&ed] { ed.handle_key(KeyEvent{Key::CtrlC, 0}); }},
+      {"Paste", "Ctrl+P", [&ed] { ed.handle_key(KeyEvent{Key::CtrlP, 0}); }},
+      {"Select All", "Ctrl+A", [&ed] { ed.handle_key(KeyEvent{Key::CtrlA, 0}); }},
+      {"Find and Replace...", "",
+       [&find_replace_requested] { find_replace_requested = true; }},
+      {"Split Horizontal", ":sp", [&ed] { ed.split_horizontal(); }},
+      {"Split Vertical", ":vsp", [&ed] { ed.split_vertical(); }},
+      {"Close Window", ":close", [&ed] { ed.close_window(); }},
+      {"Next Window", "Ctrl+W", [&ed] { ed.next_window(); }},
+      {"Toggle Word Wrap", "", [&word_wrap] { word_wrap = !word_wrap; }},
+      {"Sort Lines (A-Z)", "", [&ed] { sort_selection_or_all(ed, /*reverse=*/false); }},
+      {"Sort Lines (Z-A)", "", [&ed] { sort_selection_or_all(ed, /*reverse=*/true); }},
+      {"Compare With...", "",
+       [&compare_with_requested] { compare_with_requested = true; }},
+      {"About zedit", "", [&about_requested] { about_requested = true; }},
+      {"Check for Updates", "",
+       [&update_checker, &available_update] {
+         available_update.reset();
+         update_checker.start_check(zedit::core::version_string());
+       }},
+  };
+  if (std::function<void()> action = render_command_palette_popup(commands)) {
+    action();
   }
 
   if (open_requested) {

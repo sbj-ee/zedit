@@ -15,6 +15,7 @@ add_executable(zedit
   src/font_manager.cpp
   src/theme.cpp
   src/menu_bar.cpp
+  src/command_palette.cpp
   src/file_dialog.cpp
   src/file_finder.cpp
   src/find_replace_dialog.cpp
