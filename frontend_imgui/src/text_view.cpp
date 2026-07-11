@@ -162,6 +162,29 @@ float col_offset_x(std::string_view row_text, size_t col_within_row) {
   return ImGui::CalcTextSize(row_text.data(), row_text.data() + n).x;
 }
 
+// The inverse of col_offset_x: which column's glyph boundary is closest to
+// a given pixel offset within a row. Mouse hit-testing needs this same
+// precise per-glyph measurement, not a fixed char_width estimate (`rel_x /
+// char_width`) -- that estimate drifts from the real glyph boundaries by
+// roughly a full character's width by column 10-12 (see col_offset_x's own
+// comment), so a drag that visually stops at some word boundary could
+// silently resolve several columns further right, expanding the selection
+// -- and what Ctrl-C copies -- past where the mouse actually is. Confirmed
+// live: this was letting mouse-drag selections copy more text than what
+// was highlighted on screen.
+size_t col_for_x(std::string_view row_text, float rel_x) {
+  size_t n = row_text.size();
+  float prev_x = 0.0f;
+  for (size_t col = 1; col <= n; ++col) {
+    float x = col_offset_x(row_text, col);
+    if (x >= rel_x) {
+      return (rel_x - prev_x <= x - rel_x) ? col - 1 : col;
+    }
+    prev_x = x;
+  }
+  return n;
+}
+
 // The row's text this Editor/PieceTable position falls on, already offset
 // to start at row.start_col (so column arithmetic elsewhere can treat
 // column 0 of this string as row.start_col), or an empty string if
@@ -300,8 +323,8 @@ void draw_bracket_highlight(ImDrawList* draw_list, const PieceTable& buf, ImVec2
   }
 }
 
-bool handle_mouse_click(Editor& ed, ImVec2 origin, const std::vector<VisualRow>& rows,
-                         float char_width, float line_height) {
+bool handle_mouse_click(Editor& ed, const PieceTable& buf, ImVec2 origin,
+                         const std::vector<VisualRow>& rows, float char_width, float line_height) {
   if (!ImGui::IsWindowHovered()) {
     return false;
   }
@@ -336,7 +359,11 @@ bool handle_mouse_click(Editor& ed, ImVec2 origin, const std::vector<VisualRow>&
 
   size_t row_len = row.end_col - row.start_col;
   size_t max_col_in_row = (ed.mode() == Mode::Insert) ? row_len : (row_len > 0 ? row_len - 1 : 0);
-  size_t rel_col = static_cast<size_t>(std::max(rel_x / char_width + 0.5f, 0.0f));
+  // Precise per-glyph hit-testing (col_for_x), not a fixed char_width
+  // division -- must agree with where draw_selection actually renders each
+  // column (col_offset_x) or a drag's selection silently extends past
+  // where the mouse visually is. See col_for_x's own comment.
+  size_t rel_col = col_for_x(row_text_for(buf, row), rel_x);
   rel_col = std::min(rel_col, max_col_in_row);
   Cursor target{row.buffer_line, row.start_col + rel_col};
 
@@ -489,7 +516,7 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool 
   std::vector<VisualRow> rows =
       build_visual_rows(buf, first_visible_line_, visible_rows, max_chars, word_wrap);
 
-  bool clicked = handle_mouse_click(ed, text_origin, rows, char_width, line_height);
+  bool clicked = handle_mouse_click(ed, buf, text_origin, rows, char_width, line_height);
 
   draw_diff_backgrounds(draw_list, ed, text_origin, rows, pane_width, line_height);
   draw_selection(draw_list, ed, buf, text_origin, rows, char_width, line_height);
