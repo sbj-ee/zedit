@@ -101,7 +101,7 @@ void about_popup(ImTextureID icon_texture) {
     ImGui::SameLine();
   }
   ImGui::BeginGroup();
-  ImGui::Text("zedit -- a modal text editor");
+  ImGui::Text("zedit %s -- a modal text editor", zedit::core::version_string());
   ImGui::Text("gedit-style chrome, neovim-style keyboard-driven editing");
   ImGui::EndGroup();
   ImGui::Separator();
@@ -215,6 +215,34 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       }
       if (ImGui::MenuItem("Sort Lines (Z-A)")) {
         sort_selection_or_all(ed, /*reverse=*/true);
+      }
+      ImGui::Separator();
+      if (ImGui::BeginMenu("Compare")) {
+        // Lists every other open buffer with a real path; picking one
+        // diffs it against whatever's in the current window. Reuses
+        // Editor::diff_with() exactly as ":diff <path>" does -- it
+        // already reuses an already-open buffer matching that path
+        // rather than reopening it, so this needs no new core logic.
+        // Unnamed/unsaved buffers are skipped: diff_with's path-based
+        // buffer lookup has no reliable way to target one specifically
+        // (their "path" is just "", which every other unnamed buffer
+        // would also match).
+        size_t count = ed.buffer_count();
+        size_t current = ed.current_buffer_index();
+        bool any_others = false;
+        for (size_t i = 0; i < count; ++i) {
+          if (i == current || ed.buffer_filename(i).empty()) {
+            continue;
+          }
+          any_others = true;
+          if (ImGui::MenuItem(ed.buffer_filename(i).c_str())) {
+            ed.diff_with(ed.buffer_filename(i));
+          }
+        }
+        if (!any_others) {
+          ImGui::TextDisabled("(open a second file first)");
+        }
+        ImGui::EndMenu();
       }
       ImGui::EndMenu();
     }
