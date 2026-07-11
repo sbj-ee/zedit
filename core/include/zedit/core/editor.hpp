@@ -11,6 +11,7 @@
 
 #include "zedit/core/cursor.hpp"
 #include "zedit/core/diff.hpp"
+#include "zedit/core/git_diff.hpp"
 #include "zedit/core/highlight.hpp"
 #include "zedit/core/languages.hpp"
 #include "zedit/core/lsp.hpp"
@@ -219,6 +220,18 @@ class Editor {
   // `window_index`, or empty if that window isn't part of the active diff.
   std::vector<DiffLineStatus> diff_status_for_window(size_t window_index) const;
 
+  // Git gutter markers: per-line status of the current buffer against
+  // its content at the git HEAD commit (not the on-disk file -- an
+  // unsaved edit shows as changed too, same as any live diff-as-you-type
+  // gutter). The git HEAD content is fetched at most once per buffer
+  // (git_head_fetched_ latches it, even on failure, so a file outside
+  // any repo doesn't retry the subprocess call every frame); the diff
+  // itself is still recomputed each call, same tradeoff as
+  // diff_status_for_window. Only Added/Unchanged are meaningful here --
+  // a line-based diff has no notion of "modified" separate from
+  // "removed old + added new," so a changed line just reads as Added.
+  std::vector<DiffLineStatus> git_diff_status();
+
   // Language server integration (currently: clangd for C++ files only).
   // Started lazily the first time a C++ file becomes current; silently
   // does nothing if clangd isn't installed. Call poll_lsp() once per
@@ -266,6 +279,11 @@ class Editor {
     // so switching back to it (via :e, :bn/:bp, or a tab click) returns
     // you to where you left off, matching vim.
     Cursor last_cursor;
+    // Git gutter cache -- see git_diff_status(). git_head_fetched latches
+    // true even when git_head_content ends up nullopt, so a file outside
+    // any repo is only ever probed once, not every frame.
+    std::optional<std::string> git_head_content;
+    bool git_head_fetched = false;
   };
 
   struct Window {

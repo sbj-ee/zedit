@@ -18,6 +18,7 @@ add_library(zedit_core STATIC
   src/word_wrap.cpp
   src/update_check.cpp
   src/fuzzy_match.cpp
+  src/git_diff.cpp
 )
 
 target_include_directories(zedit_core PUBLIC

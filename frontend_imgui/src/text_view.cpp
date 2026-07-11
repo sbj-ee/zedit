@@ -101,6 +101,32 @@ void draw_line_numbers(ImDrawList* draw_list, ImVec2 origin, const std::vector<V
   }
 }
 
+// Thin colored bar at the left edge of the gutter for each line that
+// differs from the git HEAD commit -- the standard "git gutter" visual
+// language (VSCode, GitLens, vim-gitgutter), deliberately a bar in the
+// margin rather than a full-row tint like draw_diff_backgrounds, so it
+// reads as a different, lighter-weight signal ("this line changed since
+// the last commit") from the heavier ":diff two files" comparison view.
+// Only Added is meaningful here -- see git_diff_status()'s own doc
+// comment on why a line-based diff can't distinguish "modified" from
+// "removed old + added new."
+void draw_git_gutter_markers(ImDrawList* draw_list, ImVec2 origin,
+                              const std::vector<VisualRow>& rows,
+                              const std::vector<DiffLineStatus>& git_status, float line_height) {
+  constexpr float kBarWidth = 3.0f;
+  constexpr float kBarInsetX = 2.0f;
+  ImU32 color = IM_COL32(90, 180, 90, 200);
+  for (size_t i = 0; i < rows.size(); ++i) {
+    size_t line = rows[i].buffer_line;
+    if (line >= git_status.size() || git_status[line] != DiffLineStatus::Added) {
+      continue;
+    }
+    float y = origin.y + static_cast<float>(i) * line_height;
+    draw_list->AddRectFilled(ImVec2(origin.x + kBarInsetX, y),
+                              ImVec2(origin.x + kBarInsetX + kBarWidth, y + line_height), color);
+  }
+}
+
 // Squiggly underline beneath each diagnostic's range (clipped to this
 // row), colored by severity. Drawn as a small zigzag rather than a
 // straight AddLine so it reads as "diagnostic" at a glance, distinct from
@@ -455,6 +481,7 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool 
 
   draw_diagnostics(draw_list, ed, buf, text_origin, rows, line_height);
   draw_line_numbers(draw_list, origin, rows, gutter_width, line_height, ed.cursor().line);
+  draw_git_gutter_markers(draw_list, origin, rows, ed.git_diff_status(), line_height);
 
   Cursor cursor = ed.cursor();
 
