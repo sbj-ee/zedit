@@ -423,6 +423,21 @@ std::vector<std::string> buffer_lines(const PieceTable& content) {
 }  // namespace
 
 void Editor::diff_with(const std::string& path) {
+  if (diff_pair_ && windows_.size() == 2) {
+    // Already comparing with exactly one other pane -- swap what's
+    // shown in that pane for the newly picked file instead of splitting
+    // again. Without this, calling diff_with() a second time stacked a
+    // third window while diff_status_for_window() (which only knows
+    // about the latest pair) silently stopped coloring the first pane,
+    // since its buffer no longer matched either side of the new pair.
+    size_t original_buffer = cur_window().buffer_index;
+    size_t other_window = (current_window_ == 0) ? 1 : 0;
+    set_current_window(other_window);
+    open_buffer(path);
+    size_t other_buffer = cur_window().buffer_index;
+    diff_pair_ = DiffPair{original_buffer, other_buffer};
+    return;
+  }
   size_t original_buffer = cur_window().buffer_index;
   split_vertical();
   open_buffer(path);

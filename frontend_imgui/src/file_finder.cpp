@@ -193,7 +193,23 @@ void render_fuzzy_picker(Editor& ed, const char* popup_name, FinderState& state,
     state.selected_index = 0;
   }
 
-  bool confirmed = query_changed;  // InputText's Enter key returned true
+  bool confirmed = false;
+  if (query_changed) {
+    // The query field has initial keyboard focus (below), so typing a
+    // target path immediately after opening the popup -- the natural
+    // instinct -- lands here, not in the root field above. Try
+    // interpreting Enter as "cd" first; only fall through to "open the
+    // selected file" if it doesn't resolve to a directory. Confirmed
+    // live: without this, typing a path straight into the query field
+    // silently did nothing navigable.
+    if (std::optional<fs::path> resolved =
+            resolve_typed_root(state.root, state.query.data())) {
+      state.query[0] = '\0';
+      set_root(state, *resolved);
+    } else {
+      confirmed = true;  // InputText's Enter key returned true
+    }
+  }
 
   if (ImGui::IsKeyPressed(ImGuiKey_DownArrow) && !state.filtered.empty()) {
     state.selected_index = (state.selected_index + 1) % static_cast<int>(state.filtered.size());
