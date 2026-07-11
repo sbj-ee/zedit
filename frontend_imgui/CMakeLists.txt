@@ -18,6 +18,7 @@ add_executable(zedit
   src/file_dialog.cpp
   src/find_replace_dialog.cpp
   src/recent_files.cpp
+  src/update_checker.cpp
 )
 
 target_include_directories(zedit PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)

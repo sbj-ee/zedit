@@ -16,6 +16,7 @@ add_library(zedit_core STATIC
   src/lsp.cpp
   src/config.cpp
   src/word_wrap.cpp
+  src/update_check.cpp
 )
 
 target_include_directories(zedit_core PUBLIC

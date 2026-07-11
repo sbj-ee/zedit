@@ -8,14 +8,21 @@
 #include "menu_bar.hpp"
 #include "recent_files.hpp"
 #include "status_line.hpp"
+#include "update_checker.hpp"
 
 namespace zedit::frontend {
 
 App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
     : editor_(std::move(editor)), font_(font), icon_texture_(icon_texture) {}
 
-void App::render_frame(ImGuiIO& io) {
+void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
   editor_.poll_lsp();
+
+  if (!available_update_.has_value()) {
+    if (std::optional<zedit::core::UpdateInfo> found = update_checker.poll()) {
+      available_update_ = std::move(found);
+    }
+  }
 
   // Recorded here rather than at each individual "a file got opened" call
   // site (:e, the Open dialog, Save As, the initial CLI arg) -- catching
@@ -42,7 +49,7 @@ void App::render_frame(ImGuiIO& io) {
     }
   }
 
-  render_menu_bar(editor_, icon_texture_, word_wrap_);
+  render_menu_bar(editor_, icon_texture_, word_wrap_, update_checker, available_update_);
 
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);

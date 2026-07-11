@@ -1,14 +1,18 @@
 #include "menu_bar.hpp"
 
 #include <imgui.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <array>
+#include <string>
 
 #include "file_dialog.hpp"
 #include "find_replace_dialog.hpp"
 #include "recent_files.hpp"
+#include "update_checker.hpp"
 #include "zedit/core/file_io.hpp"
+#include "zedit/core/version.hpp"
 
 namespace zedit::frontend {
 
@@ -20,6 +24,29 @@ using zedit::core::KeyEvent;
 using zedit::core::Mode;
 
 namespace {
+
+// Launches the OS's default handler for a URL (xdg-open on Linux, open on
+// macOS) without going through a shell -- execlp takes the URL as a plain
+// argv entry, not shell-interpreted text, so this is immune to injection
+// regardless of what characters end up in it. Deliberately doesn't
+// waitpid(): a short-lived launcher process sitting as a zombie until
+// zedit exits is harmless for a rare, user-triggered action, and simpler
+// than managing its lifecycle for something we don't need to track.
+void open_url(const std::string& url) {
+  if (url.empty()) {
+    return;
+  }
+#if defined(__APPLE__)
+  const char* opener = "open";
+#else
+  const char* opener = "xdg-open";
+#endif
+  pid_t pid = fork();
+  if (pid == 0) {
+    execlp(opener, opener, url.c_str(), static_cast<char*>(nullptr));
+    _exit(127);  // only reached if execlp itself failed
+  }
+}
 
 // Sorts the current Visual/Visual Line selection's lines if one is
 // active, otherwise the whole buffer -- matches gedit's own Tools >
@@ -86,7 +113,9 @@ void about_popup(ImTextureID icon_texture) {
 
 }  // namespace
 
-void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap) {
+void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
+                      UpdateChecker& update_checker,
+                      std::optional<zedit::core::UpdateInfo>& available_update) {
   bool open_requested = false;
   bool save_as_requested = false;
   bool about_requested = false;
@@ -192,6 +221,19 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap) {
     if (ImGui::BeginMenu("Help")) {
       if (ImGui::MenuItem("About zedit")) {
         about_requested = true;
+      }
+      ImGui::Separator();
+      bool checking = update_checker.checking();
+      if (ImGui::MenuItem(checking ? "Checking for Updates..." : "Check for Updates", nullptr,
+                           false, !checking)) {
+        available_update.reset();  // clear a stale notice before the fresh check lands
+        update_checker.start_check(zedit::core::version_string());
+      }
+      if (available_update.has_value()) {
+        std::string label = "Update available: " + available_update->version;
+        if (ImGui::MenuItem(label.c_str())) {
+          open_url(available_update->url);
+        }
       }
       ImGui::EndMenu();
     }
