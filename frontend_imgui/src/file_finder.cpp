@@ -4,6 +4,7 @@
 
 #include <array>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -52,82 +53,109 @@ std::vector<std::string> scan_files(const fs::path& root) {
   return files;
 }
 
-}  // namespace
+// Per-instance state for one fuzzy picker popup. Kept as a plain struct
+// (rather than function-local statics) so render_find_file_popup and
+// render_compare_with_popup -- two separate popups with two separate
+// identities -- don't clobber each other's in-progress query/selection by
+// sharing statics that a single shared implementation function would
+// otherwise have.
+struct FinderState {
+  bool initialized = false;
+  std::vector<std::string> all_files;
+  std::array<char, 512> query{};
+  std::vector<std::string> filtered;
+  int selected_index = 0;
+};
 
-void render_find_file_popup(Editor& ed) {
-  static bool initialized = false;
-  static std::vector<std::string> all_files;
-  static std::array<char, 512> query{};
-  static std::vector<std::string> filtered;
-  static int selected_index = 0;
-
-  if (!ImGui::BeginPopupModal("Find File", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+// Shared picker implementation: scans on open, fuzzy-filters live as you
+// type, Enter/click hands the chosen path to `on_select` (open vs.
+// diff-with is the only thing that differs between the two popups).
+void render_fuzzy_picker(Editor& ed, const char* popup_name, FinderState& state,
+                          const std::function<void(Editor&, const std::string&)>& on_select) {
+  if (!ImGui::BeginPopupModal(popup_name, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     // Reset on close so the next open re-scans instead of reusing a
     // possibly-stale file list from wherever the last session left off.
-    initialized = false;
+    state.initialized = false;
     return;
   }
 
-  if (!initialized) {
-    all_files = scan_files(fs::current_path());
-    filtered = zedit::core::fuzzy_filter(query.data(), all_files);
-    selected_index = 0;
-    query[0] = '\0';
+  if (!state.initialized) {
+    state.all_files = scan_files(fs::current_path());
+    state.filtered = zedit::core::fuzzy_filter(state.query.data(), state.all_files);
+    state.selected_index = 0;
+    state.query[0] = '\0';
     ImGui::SetKeyboardFocusHere();
-    initialized = true;
+    state.initialized = true;
   }
 
-  bool query_changed =
-      ImGui::InputText("##find_file_query", query.data(), query.size(),
-                        ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+  ImGui::PushID(popup_name);
+
+  bool query_changed = ImGui::InputText(
+      "##query", state.query.data(), state.query.size(),
+      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
   if (ImGui::IsItemEdited()) {
-    filtered = zedit::core::fuzzy_filter(query.data(), all_files);
-    selected_index = 0;
+    state.filtered = zedit::core::fuzzy_filter(state.query.data(), state.all_files);
+    state.selected_index = 0;
   }
 
-  bool open_selected = query_changed;  // InputText's Enter key returned true
+  bool confirmed = query_changed;  // InputText's Enter key returned true
 
-  if (ImGui::IsKeyPressed(ImGuiKey_DownArrow) && !filtered.empty()) {
-    selected_index = (selected_index + 1) % static_cast<int>(filtered.size());
+  if (ImGui::IsKeyPressed(ImGuiKey_DownArrow) && !state.filtered.empty()) {
+    state.selected_index = (state.selected_index + 1) % static_cast<int>(state.filtered.size());
   }
-  if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && !filtered.empty()) {
-    selected_index =
-        (selected_index - 1 + static_cast<int>(filtered.size())) % static_cast<int>(filtered.size());
+  if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && !state.filtered.empty()) {
+    state.selected_index = (state.selected_index - 1 + static_cast<int>(state.filtered.size())) %
+                            static_cast<int>(state.filtered.size());
   }
 
-  ImGui::BeginChild("find_file_list", ImVec2(560.0f, 320.0f), true);
-  for (size_t i = 0; i < filtered.size(); ++i) {
+  ImGui::BeginChild("list", ImVec2(560.0f, 320.0f), true);
+  for (size_t i = 0; i < state.filtered.size(); ++i) {
     ImGui::PushID(static_cast<int>(i));
-    bool is_selected = static_cast<int>(i) == selected_index;
-    if (ImGui::Selectable(filtered[i].c_str(), is_selected)) {
-      selected_index = static_cast<int>(i);
-      open_selected = true;
+    bool is_selected = static_cast<int>(i) == state.selected_index;
+    if (ImGui::Selectable(state.filtered[i].c_str(), is_selected)) {
+      state.selected_index = static_cast<int>(i);
+      confirmed = true;
     }
     if (is_selected) {
       ImGui::SetItemDefaultFocus();
     }
     ImGui::PopID();
   }
-  if (filtered.empty()) {
-    ImGui::TextDisabled(all_files.empty() ? "(no files found)" : "(no matches)");
+  if (state.filtered.empty()) {
+    ImGui::TextDisabled(state.all_files.empty() ? "(no files found)" : "(no matches)");
   }
   ImGui::EndChild();
 
   bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
 
-  if (open_selected && selected_index >= 0 &&
-      selected_index < static_cast<int>(filtered.size())) {
-    ed.open_buffer(filtered[static_cast<size_t>(selected_index)]);
+  if (confirmed && state.selected_index >= 0 &&
+      state.selected_index < static_cast<int>(state.filtered.size())) {
+    on_select(ed, state.filtered[static_cast<size_t>(state.selected_index)]);
     cancelled = true;  // reuse the same close path below
   }
 
   if (cancelled) {
-    query[0] = '\0';
-    initialized = false;
+    state.query[0] = '\0';
+    state.initialized = false;
     ImGui::CloseCurrentPopup();
   }
 
+  ImGui::PopID();
   ImGui::EndPopup();
+}
+
+}  // namespace
+
+void render_find_file_popup(Editor& ed) {
+  static FinderState state;
+  render_fuzzy_picker(ed, "Find File", state,
+                       [](Editor& editor, const std::string& path) { editor.open_buffer(path); });
+}
+
+void render_compare_with_popup(Editor& ed) {
+  static FinderState state;
+  render_fuzzy_picker(ed, "Compare With", state,
+                       [](Editor& editor, const std::string& path) { editor.diff_with(path); });
 }
 
 }  // namespace zedit::frontend
