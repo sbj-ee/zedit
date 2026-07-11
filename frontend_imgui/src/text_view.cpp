@@ -119,8 +119,36 @@ void draw_squiggle(ImDrawList* draw_list, float x0, float x1, float y, ImU32 col
   }
 }
 
-void draw_diagnostics(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
-                       const std::vector<VisualRow>& rows, float char_width, float line_height) {
+// Precise column -> x offset within a row's text, matching draw_line_text's
+// own glyph-accurate advance measurement. `col * char_width` (a fixed
+// width derived from a single "M" glyph) accumulates fractional
+// per-glyph rounding error that grows to roughly a full character's
+// worth of drift by column 10-12, even in a "monospace" font -- every
+// place that positions something at a specific column (cursor, selection,
+// bracket highlight, diagnostic squiggle) must agree pixel-for-pixel with
+// where draw_line_text actually put that column's glyph, or they visibly
+// drift apart on any line longer than about ten characters. Confirmed
+// live: a block cursor at column 11 rendered a full cell to the right of
+// the actual character there.
+float col_offset_x(std::string_view row_text, size_t col_within_row) {
+  size_t n = std::min(col_within_row, row_text.size());
+  return ImGui::CalcTextSize(row_text.data(), row_text.data() + n).x;
+}
+
+// The row's text this Editor/PieceTable position falls on, already offset
+// to start at row.start_col (so column arithmetic elsewhere can treat
+// column 0 of this string as row.start_col), or an empty string if
+// `row.buffer_line` is out of range.
+std::string row_text_for(const PieceTable& buf, const VisualRow& row) {
+  std::string line = buf.line_text(row.buffer_line);
+  if (row.start_col >= line.size()) {
+    return {};
+  }
+  return line.substr(row.start_col, row.end_col - row.start_col);
+}
+
+void draw_diagnostics(ImDrawList* draw_list, const Editor& ed, const PieceTable& buf,
+                       ImVec2 origin, const std::vector<VisualRow>& rows, float line_height) {
   std::vector<LspDiagnostic> diags = ed.diagnostics();
   if (diags.empty()) {
     return;
@@ -140,9 +168,10 @@ void draw_diagnostics(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
       if (start_col >= end_col) {
         continue;
       }
+      std::string text = row_text_for(buf, row);
       float y = origin.y + static_cast<float>(i) * line_height + line_height - 3.0f;
-      float x0 = origin.x + static_cast<float>(start_col - row.start_col) * char_width;
-      float x1 = origin.x + static_cast<float>(end_col - row.start_col) * char_width;
+      float x0 = origin.x + col_offset_x(text, start_col - row.start_col);
+      float x1 = origin.x + col_offset_x(text, end_col - row.start_col);
       draw_squiggle(draw_list, x0, x1, y, color);
     }
   }
@@ -177,7 +206,7 @@ void draw_diff_backgrounds(ImDrawList* draw_list, const Editor& ed, ImVec2 origi
   }
 }
 
-void draw_selection(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
+void draw_selection(ImDrawList* draw_list, const Editor& ed, const PieceTable& buf, ImVec2 origin,
                      const std::vector<VisualRow>& rows, float char_width, float line_height) {
   Mode mode = ed.mode();
   if (mode != Mode::Visual && mode != Mode::VisualLine) {
@@ -205,9 +234,20 @@ void draw_selection(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
     if (start_col >= end_col) {
       continue;
     }
+    std::string text = row_text_for(buf, row);
     float y = origin.y + static_cast<float>(i) * line_height;
-    float x0 = origin.x + static_cast<float>(start_col - row.start_col) * char_width;
-    float x1 = origin.x + static_cast<float>(end_col - row.start_col) * char_width;
+    float x0 = origin.x + col_offset_x(text, start_col - row.start_col);
+    // The selection's exclusive end can be one past the row's own text
+    // (see the VisualLine/+1 cases above), for which col_offset_x's own
+    // clamp-to-size falls one glyph short of the intended "through the
+    // end of line" width -- pad by a fixed char_width in exactly that
+    // case so a linewise/end-of-line selection still visibly reaches the
+    // row's edge instead of stopping one glyph early.
+    size_t text_col_end = end_col - row.start_col;
+    float x1 = origin.x + (text_col_end > text.size()
+                                ? col_offset_x(text, text.size()) +
+                                      static_cast<float>(text_col_end - text.size()) * char_width
+                                : col_offset_x(text, text_col_end));
     draw_list->AddRectFilled(ImVec2(x0, y), ImVec2(x1, y + line_height), color);
   }
 }
@@ -215,17 +255,20 @@ void draw_selection(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
 // An outlined (not filled, to stay legible over the cursor block/selection)
 // box around one character -- used for both halves of a matching bracket
 // pair. A no-op if `pos` isn't on any currently-visible row.
-void draw_bracket_highlight(ImDrawList* draw_list, ImVec2 origin, const std::vector<VisualRow>& rows,
-                             float char_width, float line_height, Cursor pos) {
+void draw_bracket_highlight(ImDrawList* draw_list, const PieceTable& buf, ImVec2 origin,
+                             const std::vector<VisualRow>& rows, float line_height, Cursor pos) {
   for (size_t i = 0; i < rows.size(); ++i) {
     const VisualRow& row = rows[i];
     if (row.buffer_line != pos.line || pos.col < row.start_col || pos.col >= row.end_col) {
       continue;
     }
-    float x = origin.x + static_cast<float>(pos.col - row.start_col) * char_width;
+    std::string text = row_text_for(buf, row);
+    size_t col = pos.col - row.start_col;
+    float x0 = origin.x + col_offset_x(text, col);
+    float x1 = origin.x + col_offset_x(text, col + 1);
     float y = origin.y + static_cast<float>(i) * line_height;
-    draw_list->AddRect(ImVec2(x, y), ImVec2(x + char_width, y + line_height),
-                        IM_COL32(255, 215, 0, 220), 0.0f, 0, 1.5f);
+    draw_list->AddRect(ImVec2(x0, y), ImVec2(x1, y + line_height), IM_COL32(255, 215, 0, 220),
+                        0.0f, 0, 1.5f);
     return;
   }
 }
@@ -391,7 +434,7 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool 
   bool clicked = handle_mouse_click(ed, text_origin, rows, char_width, line_height);
 
   draw_diff_backgrounds(draw_list, ed, text_origin, rows, pane_width, line_height);
-  draw_selection(draw_list, ed, text_origin, rows, char_width, line_height);
+  draw_selection(draw_list, ed, buf, text_origin, rows, char_width, line_height);
 
   size_t viewport_start_byte = buf.line_start_offset(first_visible_line_);
   size_t viewport_end_line = rows.empty() ? first_visible_line_ : rows.back().buffer_line + 1;
@@ -410,7 +453,7 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool 
                     ImVec2(text_origin.x, y));
   }
 
-  draw_diagnostics(draw_list, ed, text_origin, rows, char_width, line_height);
+  draw_diagnostics(draw_list, ed, buf, text_origin, rows, line_height);
   draw_line_numbers(draw_list, origin, rows, gutter_width, line_height, ed.cursor().line);
 
   Cursor cursor = ed.cursor();
@@ -420,25 +463,34 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool 
     std::optional<size_t> match = motion_matching_bracket(buf, ed.cursor_offset());
     if (match) {
       Cursor match_pos = ed.offset_to_cursor(*match);
-      draw_bracket_highlight(draw_list, text_origin, rows, char_width, line_height, cursor);
-      draw_bracket_highlight(draw_list, text_origin, rows, char_width, line_height, match_pos);
+      draw_bracket_highlight(draw_list, buf, text_origin, rows, line_height, cursor);
+      draw_bracket_highlight(draw_list, buf, text_origin, rows, line_height, match_pos);
     }
   }
 
-  float cursor_x = text_origin.x + static_cast<float>(cursor.col) * char_width;
+  float cursor_x = text_origin.x;
   float cursor_y = text_origin.y;
+  // The actual glyph width at the cursor's column, not a fixed
+  // char_width -- so the block cursor's right edge lands exactly where
+  // the *next* column's glyph starts, matching col_offset_x's precision.
+  float cursor_glyph_width = char_width;
   for (size_t i = 0; i < rows.size(); ++i) {
     const VisualRow& row = rows[i];
     if (row.buffer_line == cursor.line && cursor.col >= row.start_col &&
         cursor.col <= row.end_col) {
-      cursor_x = text_origin.x + static_cast<float>(cursor.col - row.start_col) * char_width;
+      std::string text = row_text_for(buf, row);
+      size_t col = cursor.col - row.start_col;
+      cursor_x = text_origin.x + col_offset_x(text, col);
       cursor_y = text_origin.y + static_cast<float>(i) * line_height;
+      if (col < text.size()) {
+        cursor_glyph_width = col_offset_x(text, col + 1) - col_offset_x(text, col);
+      }
       break;
     }
   }
   cursor_screen_pos_ = ImVec2(cursor_x, cursor_y);
   bool block_cursor = (ed.mode() != Mode::Insert);
-  float cursor_width = block_cursor ? char_width : std::max(2.0f, char_width * 0.15f);
+  float cursor_width = block_cursor ? cursor_glyph_width : std::max(2.0f, char_width * 0.15f);
   draw_list->AddRectFilled(
       ImVec2(cursor_x, cursor_y), ImVec2(cursor_x + cursor_width, cursor_y + line_height),
       IM_COL32(210, 200, 80, block_cursor ? 130 : 220));
