@@ -138,7 +138,9 @@ void render_open_file_popup(Editor& ed) {
     // so a call made before it wouldn't reliably reach this InputText.
     ImGui::SetKeyboardFocusHere();
   }
-  bool confirmed = ImGui::InputText("Path", path_buf.data(), path_buf.size(),
+  ImGui::TextUnformatted("Path");
+  ImGui::SameLine();
+  bool confirmed = ImGui::InputText("##Path", path_buf.data(), path_buf.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue);
   confirmed = ImGui::Button("Open") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
@@ -202,7 +204,9 @@ void render_save_as_popup(Editor& ed) {
     // right before that widget rather than earlier in the frame.
     ImGui::SetKeyboardFocusHere();
   }
-  bool confirmed = ImGui::InputText("Filename", filename_buf.data(), filename_buf.size(),
+  ImGui::TextUnformatted("Filename");
+  ImGui::SameLine();
+  bool confirmed = ImGui::InputText("##Filename", filename_buf.data(), filename_buf.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue);
   confirmed = ImGui::Button("Save") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
@@ -263,7 +267,9 @@ void render_compare_with_popup(Editor& ed) {
   if (just_opened) {
     ImGui::SetKeyboardFocusHere();
   }
-  bool confirmed = ImGui::InputText("Path", path_buf.data(), path_buf.size(),
+  ImGui::TextUnformatted("Path");
+  ImGui::SameLine();
+  bool confirmed = ImGui::InputText("##Path", path_buf.data(), path_buf.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue);
   confirmed = ImGui::Button("Compare") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
