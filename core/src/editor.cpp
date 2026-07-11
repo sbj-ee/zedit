@@ -4,15 +4,21 @@
 #include <utility>
 
 #include "zedit/core/file_io.hpp"
+#include "zedit/core/languages.hpp"
 #include "zedit/core/search.hpp"
 
 namespace zedit::core {
 
 Editor Editor::open_file(const std::string& path) {
   Editor ed;
-  ed.cur().filename = path;
   ed.cur().content = PieceTable(read_file(path));
+  ed.set_filename(path);
   return ed;
+}
+
+void Editor::set_filename(std::string path) {
+  cur().filename = std::move(path);
+  set_highlighter(make_highlighter_for_filename(cur().filename));
 }
 
 size_t Editor::cursor_offset() const {
@@ -116,7 +122,7 @@ void Editor::save() {
 }
 
 void Editor::save_as(const std::string& path) {
-  cur().filename = path;
+  set_filename(path);
   save();
 }
 
@@ -206,7 +212,6 @@ void Editor::open_buffer(const std::string& path) {
   }
 
   Buffer buf;
-  buf.filename = path;
   try {
     buf.content = PieceTable(read_file(path));
   } catch (const FileIoError&) {
@@ -214,6 +219,7 @@ void Editor::open_buffer(const std::string& path) {
   }
   buffers_.push_back(std::move(buf));
   current_ = buffers_.size() - 1;
+  set_filename(path);
 }
 
 }  // namespace zedit::core

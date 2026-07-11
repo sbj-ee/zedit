@@ -1,5 +1,11 @@
 include(FetchContent)
 
+# Vendored deps build as static libraries for a simple, self-contained
+# binary. Set globally (before any FetchContent_MakeAvailable) since
+# tree-sitter's own CMakeLists only *offers* BUILD_SHARED_LIBS as an
+# option -- option() is a no-op once the cache variable already exists.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 # ---- GLFW ----------------------------------------------------------------
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -41,6 +47,66 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PUBLIC glfw)
 find_package(OpenGL REQUIRED)
 target_link_libraries(imgui PUBLIC OpenGL::GL)
+
+# ---- tree-sitter core -----------------------------------------------------
+# Ships its own working CMakeLists.txt at the repo root (lib/CMakeLists.txt
+# in older releases; moved to the root as of the 0.25/0.26 restructuring),
+# which already exposes lib/include PUBLICly -- no hand-written glue needed.
+# Pinned to a release supporting ABI 15 (TREE_SITTER_LANGUAGE_VERSION),
+# since tree-sitter-markdown's checked-in parser.c requires it; ABI 13-14
+# grammars (cpp, python) remain compatible under the same range.
+FetchContent_Declare(
+  tree_sitter
+  GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
+  GIT_TAG v0.26.10
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(tree_sitter)
+
+# ---- tree-sitter grammars --------------------------------------------------
+include(${CMAKE_SOURCE_DIR}/cmake/TreeSitterGrammar.cmake)
+
+# C++'s own highlights.scm only covers C++-specific constructs (templates,
+# class/namespace keywords, ...); it's designed to be layered on top of C's
+# query for the constructs they share (comments, strings, numbers,
+# operators, ...), same as nvim-treesitter's "; inherits: c" convention.
+zedit_fetch_query_only(
+  tree-sitter-c-queries
+  https://github.com/tree-sitter/tree-sitter-c.git
+  v0.23.4
+)
+zedit_add_tree_sitter_grammar(
+  tree-sitter-cpp
+  https://github.com/tree-sitter/tree-sitter-cpp.git
+  v0.23.4
+  tree_sitter_cpp
+  kCppHighlightsQuery
+  INHERIT_QUERY_DIRS ${tree-sitter-c-queries_SOURCE_DIR}/queries
+)
+
+zedit_add_tree_sitter_grammar(
+  tree-sitter-python
+  https://github.com/tree-sitter/tree-sitter-python.git
+  v0.23.6
+  tree_sitter_python
+  kPythonHighlightsQuery
+)
+
+# Markdown ships as two grammars (block structure + a separate "inline"
+# grammar for emphasis/links/inline-code within paragraph text) combined
+# via tree-sitter's language-injection mechanism. We only wire up the
+# block grammar for now -- headings, code fences, lists, block quotes, and
+# thematic breaks highlight correctly; inline emphasis/links do not yet.
+# Full injection support is a reasonable follow-up, not required for a
+# useful first pass.
+zedit_add_tree_sitter_grammar(
+  tree-sitter-markdown
+  https://github.com/tree-sitter-grammars/tree-sitter-markdown.git
+  v0.5.3
+  tree_sitter_markdown
+  kMarkdownHighlightsQuery
+  REPO_SUBDIR tree-sitter-markdown
+)
 
 # ---- Catch2 (tests only) --------------------------------------------------
 if(ZEDIT_BUILD_TESTS)

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
-project(zedit CXX)
+# C is needed alongside C++ because tree-sitter grammar sources (parser.c,
+# scanner.c) are compiled directly as part of this project (see
+# cmake/TreeSitterGrammar.cmake), not via a subproject with its own C-only
+# project() call.
+project(zedit CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -6,6 +6,7 @@ add_executable(zedit
   src/input_map.cpp
   src/font_manager.cpp
   src/tab_bar.cpp
+  src/theme.cpp
 )
 
 target_link_libraries(zedit PRIVATE

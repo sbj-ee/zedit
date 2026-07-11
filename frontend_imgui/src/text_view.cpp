@@ -4,11 +4,16 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
+
+#include "theme.hpp"
+#include "zedit/core/highlight.hpp"
 
 namespace zedit::frontend {
 
 using zedit::core::Cursor;
 using zedit::core::Editor;
+using zedit::core::HighlightSpan;
 using zedit::core::Mode;
 using zedit::core::PieceTable;
 
@@ -72,6 +77,49 @@ void handle_mouse_click(Editor& ed, ImVec2 origin, size_t first_visible_line,
   ed.set_cursor(Cursor{clicked_line, col});
 }
 
+// Draws one line's text as a sequence of colored segments, splitting at
+// each highlight span's boundaries (clipped to this line) and using the
+// default color for whatever falls between spans. Advances x by each run's
+// actual measured width (via CalcTextSize) rather than assuming
+// char_width * byte_count -- with a real font, per-glyph advances can
+// differ from the "M"-derived char_width by fractions of a pixel, and that
+// error accumulates into visible gaps after several segments on one line.
+void draw_line_text(ImDrawList* draw_list, std::string_view text, size_t line_start_byte,
+                     const std::vector<HighlightSpan>& visible_spans, ImVec2 line_origin) {
+  size_t line_end_byte = line_start_byte + text.size();
+
+  std::vector<HighlightSpan> segs;
+  for (const HighlightSpan& s : visible_spans) {
+    if (s.end_byte <= line_start_byte || s.start_byte >= line_end_byte) {
+      continue;
+    }
+    segs.push_back(HighlightSpan{std::max(s.start_byte, line_start_byte),
+                                  std::min(s.end_byte, line_end_byte), s.kind});
+  }
+  std::sort(segs.begin(), segs.end(),
+            [](const HighlightSpan& a, const HighlightSpan& b) { return a.start_byte < b.start_byte; });
+
+  size_t pos = line_start_byte;
+  float x = line_origin.x;
+  auto draw_run = [&](size_t start, size_t end, ImU32 color) {
+    if (end <= start) return;
+    const char* begin = text.data() + (start - line_start_byte);
+    const char* stop = text.data() + (end - line_start_byte);
+    draw_list->AddText(ImVec2(x, line_origin.y), color, begin, stop);
+    x += ImGui::CalcTextSize(begin, stop).x;
+  };
+
+  for (const HighlightSpan& seg : segs) {
+    if (seg.start_byte < pos) {
+      continue;  // overlapping capture on already-drawn ground; skip
+    }
+    draw_run(pos, seg.start_byte, default_text_color());
+    draw_run(seg.start_byte, seg.end_byte, color_for_token(seg.kind));
+    pos = seg.end_byte;
+  }
+  draw_run(pos, line_end_byte, default_text_color());
+}
+
 }  // namespace
 
 void TextView::scroll_to_keep_cursor_visible(const Editor& ed,
@@ -114,12 +162,17 @@ void TextView::render(Editor& ed, ImFont* font, float height) {
 
   draw_selection(draw_list, ed, origin, first_visible_line_, last_line, char_width, line_height);
 
+  size_t viewport_start_byte = buf.line_start_offset(first_visible_line_);
+  size_t viewport_end_byte = (last_line < total_lines) ? buf.line_start_offset(last_line) : buf.size();
+  std::vector<HighlightSpan> visible_spans =
+      ed.highlighter().highlight(viewport_start_byte, viewport_end_byte);
+
   for (size_t line = first_visible_line_; line < last_line; ++line) {
     float y = origin.y +
                static_cast<float>(line - first_visible_line_) * line_height;
     std::string text = buf.line_text(line);
-    draw_list->AddText(ImVec2(origin.x, y), IM_COL32(220, 220, 220, 255),
-                        text.c_str(), text.c_str() + text.size());
+    size_t line_start_byte = buf.line_start_offset(line);
+    draw_line_text(draw_list, text, line_start_byte, visible_spans, ImVec2(origin.x, y));
   }
 
   Cursor cursor = ed.cursor();

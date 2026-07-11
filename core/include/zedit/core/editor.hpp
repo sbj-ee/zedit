@@ -1,11 +1,13 @@
 #pragma once
 
 #include <array>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "zedit/core/cursor.hpp"
+#include "zedit/core/highlight.hpp"
 #include "zedit/core/mode.hpp"
 #include "zedit/core/mode_state_machine.hpp"
 #include "zedit/core/piece_table.hpp"
@@ -47,7 +49,9 @@ class Editor {
   Cursor visual_anchor() const { return mode_sm_.visual_anchor(); }
 
   const std::string& filename() const { return cur().filename; }
-  void set_filename(std::string path) { cur().filename = std::move(path); }
+  // Also re-picks the syntax highlighter to match the new filename's
+  // extension (e.g. starting an empty buffer destined for "foo.cpp").
+  void set_filename(std::string path);
 
   bool dirty() const { return cur().dirty; }
   bool should_quit() const { return should_quit_; }
@@ -135,6 +139,17 @@ class Editor {
   void prev_buffer();
   void open_buffer(const std::string& path);
 
+  // The current buffer's syntax highlighter (one per buffer, since
+  // different open files can be different languages). Defaults to a
+  // PlainHighlighter; callers that know the file type (e.g. Editor's own
+  // open_file/open_buffer, by extension) can install a real one.
+  Highlighter& highlighter() { return *cur().highlighter; }
+  const Highlighter& highlighter() const { return *cur().highlighter; }
+  void set_highlighter(std::unique_ptr<Highlighter> h) {
+    cur().highlighter = std::move(h);
+    cur().highlighter->set_text(buffer().to_string());
+  }
+
  private:
   struct UndoEntry {
     PieceTable::Snapshot buffer_snapshot;
@@ -148,6 +163,7 @@ class Editor {
     bool dirty = false;
     std::vector<UndoEntry> undo_stack;
     std::vector<UndoEntry> redo_stack;
+    std::unique_ptr<Highlighter> highlighter = std::make_unique<PlainHighlighter>();
   };
 
   std::vector<Buffer> buffers_ = std::vector<Buffer>(1);
@@ -161,7 +177,10 @@ class Editor {
 
   Buffer& cur() { return buffers_[current_]; }
   const Buffer& cur() const { return buffers_[current_]; }
-  void mark_dirty() { cur().dirty = true; }
+  void mark_dirty() {
+    cur().dirty = true;
+    cur().highlighter->set_text(cur().content.to_string());
+  }
 };
 
 }  // namespace zedit::core

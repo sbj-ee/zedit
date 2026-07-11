@@ -8,6 +8,8 @@ add_library(zedit_core STATIC
   src/search.cpp
   src/mode_state_machine.cpp
   src/editor.cpp
+  src/treesitter_highlighter.cpp
+  src/languages.cpp
 )
 
 target_include_directories(zedit_core PUBLIC
@@ -15,4 +17,6 @@ target_include_directories(zedit_core PUBLIC
 )
 
 target_link_libraries(zedit_core PRIVATE zedit_warnings)
+target_link_libraries(zedit_core PUBLIC tree-sitter)
+target_link_libraries(zedit_core PRIVATE tree-sitter-cpp tree-sitter-python tree-sitter-markdown)
 target_compile_features(zedit_core PUBLIC cxx_std_20)

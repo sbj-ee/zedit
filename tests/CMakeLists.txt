@@ -12,6 +12,10 @@ add_executable(zedit_tests
   core/test_named_registers.cpp
   core/test_multi_buffer.cpp
   core/test_dot_repeat.cpp
+  core/test_highlight.cpp
+  core/test_treesitter_smoke.cpp
+  core/test_treesitter_highlighter.cpp
+  core/test_more_languages.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
