@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=zedit
+Comment=A modal text editor with gedit-style chrome and neovim-style editing
+Exec=ze %F
+Icon=zedit
+Terminal=false
+Categories=Development;TextEditor;
+StartupWMClass=zedit
+MimeType=text/plain;text/x-csrc;text/x-c++src;text/x-python;text/markdown;

@@ -56,6 +56,30 @@ void set_window_icon(GLFWwindow* window) {
   stbi_image_free(pixels);
 }
 
+// Same embedded PNG, but as a GL texture for drawing inline in ImGui (the
+// About popup) -- window-manager-level icon visibility (title bar/taskbar)
+// varies a lot by desktop environment, so this is the one place the logo
+// is guaranteed visible regardless of DE quirks. Returns 0 (ImTextureID's
+// null value) on failure; callers just skip drawing it then.
+ImTextureID load_icon_gl_texture() {
+  int width = 0;
+  int height = 0;
+  int channels = 0;
+  unsigned char* pixels = stbi_load_from_memory(kZeditIconPng, static_cast<int>(kZeditIconPng_len),
+                                                 &width, &height, &channels, 4);
+  if (pixels == nullptr) {
+    return ImTextureID();
+  }
+  GLuint texture = 0;
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+  stbi_image_free(pixels);
+  return static_cast<ImTextureID>(texture);
+}
+
 zedit::core::Editor make_editor(int argc, char** argv) {
   if (argc < 2) {
     return zedit::core::Editor();
@@ -102,6 +126,13 @@ int main(int argc, char** argv) {
 #ifdef __APPLE__
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
+#ifdef GLFW_X11_CLASS_NAME
+  // Lets a desktop entry's StartupWMClass=zedit match this window, which is
+  // how many taskbars/docks (esp. GNOME Shell) look up an app's icon rather
+  // than reading it live off the window -- see assets/linux/zedit.desktop.
+  glfwWindowHintString(GLFW_X11_CLASS_NAME, "zedit");
+  glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "zedit");
+#endif
 
   GLFWwindow* window = glfwCreateWindow(1280, 800, "zedit", nullptr, nullptr);
   if (window == nullptr) {
@@ -111,6 +142,7 @@ int main(int argc, char** argv) {
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1);
   set_window_icon(window);
+  ImTextureID icon_texture = load_icon_gl_texture();
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -125,7 +157,7 @@ int main(int argc, char** argv) {
 
   zedit::core::Editor editor = make_editor(argc, argv);
   apply_config(editor);
-  zedit::frontend::App app(std::move(editor), font);
+  zedit::frontend::App app(std::move(editor), font, icon_texture);
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();

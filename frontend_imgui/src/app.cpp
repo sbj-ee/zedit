@@ -10,8 +10,8 @@
 
 namespace zedit::frontend {
 
-App::App(zedit::core::Editor editor, ImFont* font)
-    : editor_(std::move(editor)), font_(font) {}
+App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
+    : editor_(std::move(editor)), font_(font), icon_texture_(icon_texture) {}
 
 void App::render_frame(ImGuiIO& io) {
   editor_.poll_lsp();
@@ -33,7 +33,7 @@ void App::render_frame(ImGuiIO& io) {
     }
   }
 
-  render_menu_bar(editor_);
+  render_menu_bar(editor_, icon_texture_);
 
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);

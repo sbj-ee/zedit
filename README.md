@@ -47,6 +47,19 @@ cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
 
+## Linux desktop integration (optional)
+
+The running app embeds its own icon (window/taskbar), but whether a taskbar
+or dock actually *shows* it varies by desktop environment -- some (notably
+GNOME Shell) look it up via a `.desktop` file rather than reading it live off
+the window. To install one:
+
+```sh
+cp assets/linux/zedit.desktop ~/.local/share/applications/
+mkdir -p ~/.local/share/icons/hicolor/128x128/apps
+cp assets/logo/zedit-128.png ~/.local/share/icons/hicolor/128x128/apps/zedit.png
+```
+
 ## Configuration
 
 Drop a `~/.config/zedit/init.lua` (or set `$ZEDIT_CONFIG` to a path) to

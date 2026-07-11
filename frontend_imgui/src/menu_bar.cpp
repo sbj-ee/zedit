@@ -46,12 +46,18 @@ void save_as_popup(Editor& ed) {
   ImGui::EndPopup();
 }
 
-void about_popup() {
+void about_popup(ImTextureID icon_texture) {
   if (!ImGui::BeginPopupModal("About zedit", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     return;
   }
+  if (icon_texture != ImTextureID()) {
+    ImGui::Image(icon_texture, ImVec2(80.0f, 80.0f));
+    ImGui::SameLine();
+  }
+  ImGui::BeginGroup();
   ImGui::Text("zedit -- a modal text editor");
   ImGui::Text("gedit-style chrome, neovim-style keyboard-driven editing");
+  ImGui::EndGroup();
   ImGui::Separator();
   if (ImGui::Button("Close")) {
     ImGui::CloseCurrentPopup();
@@ -61,7 +67,7 @@ void about_popup() {
 
 }  // namespace
 
-void render_menu_bar(Editor& ed) {
+void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
   bool open_requested = false;
   bool save_as_requested = false;
   bool about_requested = false;
@@ -148,7 +154,7 @@ void render_menu_bar(Editor& ed) {
   }
   render_open_file_popup(ed);
   save_as_popup(ed);
-  about_popup();
+  about_popup(icon_texture);
 }
 
 }  // namespace zedit::frontend

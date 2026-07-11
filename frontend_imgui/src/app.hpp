@@ -1,12 +1,11 @@
 #pragma once
 
+#include <imgui.h>
+
 #include <vector>
 
 #include "text_view.hpp"
 #include "zedit/core/editor.hpp"
-
-struct ImGuiIO;
-struct ImFont;
 
 namespace zedit::frontend {
 
@@ -21,7 +20,9 @@ namespace zedit::frontend {
 // needs no separate per-window rendering path.
 class App {
  public:
-  App(zedit::core::Editor editor, ImFont* font);
+  // icon_texture may be 0 (ImTextureID's null value) if the logo failed to
+  // load as a GL texture -- the About popup just skips drawing it then.
+  App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture);
 
   void render_frame(ImGuiIO& io);
   bool should_close() const { return editor_.should_quit(); }
@@ -30,6 +31,7 @@ class App {
   zedit::core::Editor editor_;
   std::vector<TextView> text_views_;
   ImFont* font_;
+  ImTextureID icon_texture_;
 };
 
 }  // namespace zedit::frontend
