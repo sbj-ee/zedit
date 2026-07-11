@@ -32,11 +32,20 @@ void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
     last_recorded_filename_ = editor_.filename();
   }
 
-  // While a popup text field (e.g. the menu bar's "Open..."/"Save As..."
-  // path box) wants keyboard input, none of it should also reach the
-  // editor -- otherwise typing a path would simultaneously type into the
-  // document underneath.
-  if (!io.WantTextInput) {
+  // While any modal popup is open, no keystroke should also reach the
+  // editor underneath -- otherwise typing into a popup's field (or even
+  // just pressing keys over a popup with no text field at all, like
+  // About) simultaneously fires vim keybindings against the document.
+  // Gated on "any popup open" rather than io.WantTextInput specifically:
+  // the latter is only true while some *text widget* has focus, which
+  // depends on every popup remembering to call SetKeyboardFocusHere on
+  // one (missed twice already -- see file_dialog.cpp and
+  // find_replace_dialog.cpp's history) and is simply false for a
+  // text-free popup like About, where input would otherwise leak through
+  // for as long as it's open.
+  bool any_popup_open =
+      ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
+  if (!any_popup_open) {
     for (const zedit::core::KeyEvent& ev : collect_key_events(io)) {
       // Any keypress dismisses a currently-shown hover popup (it still
       // goes on to perform its normal action -- this isn't a modal "eat
