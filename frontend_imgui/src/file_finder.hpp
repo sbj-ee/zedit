@@ -13,14 +13,4 @@ namespace zedit::frontend {
 // this file, matching render_open_file_popup's pattern.
 void render_find_file_popup(zedit::core::Editor& ed);
 
-// Same fuzzy quick-open, but diffs the selected file against the current
-// window (via Editor::diff_with) instead of just opening it -- diff_with
-// already opens the file first if it isn't already a buffer, so this
-// works on any file in the tree, not just ones already open. Call after
-// ImGui::OpenPopup("Compare With"). Independent state from
-// render_find_file_popup, so both popups can exist without interfering
-// with each other (they're just two instances of the same underlying
-// picker aimed at different Editor actions).
-void render_compare_with_popup(zedit::core::Editor& ed);
-
 }  // namespace zedit::frontend

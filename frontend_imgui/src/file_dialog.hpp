@@ -20,4 +20,13 @@ void render_open_file_popup(zedit::core::Editor& ed);
 // one. Call after ImGui::OpenPopup("Save As").
 void render_save_as_popup(zedit::core::Editor& ed);
 
+// Renders the "Compare With" popup's contents: the same directory tree
+// browser as Open/Save As (navigate with the list, ".." to go up) plus a
+// path text field. Double-clicking a file, pressing Enter, or the
+// Compare button diffs it against the current window via
+// Editor::diff_with(), which already opens the file first if it isn't
+// already a buffer -- this works on any file in the tree, not just ones
+// already open. Call after ImGui::OpenPopup("Compare With").
+void render_compare_with_popup(zedit::core::Editor& ed);
+
 }  // namespace zedit::frontend

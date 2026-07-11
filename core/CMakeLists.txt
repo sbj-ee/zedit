@@ -9,6 +9,7 @@ add_library(zedit_core STATIC
   src/mode_state_machine.cpp
   src/editor.cpp
   src/treesitter_highlighter.cpp
+  src/markdown_highlighter.cpp
   src/languages.cpp
   src/diff.cpp
   src/subprocess.cpp
@@ -27,7 +28,7 @@ target_include_directories(zedit_core PUBLIC
 
 target_link_libraries(zedit_core PRIVATE zedit_warnings)
 target_link_libraries(zedit_core PUBLIC tree-sitter)
-target_link_libraries(zedit_core PRIVATE tree-sitter-cpp tree-sitter-python tree-sitter-markdown)
+target_link_libraries(zedit_core PRIVATE tree-sitter-c tree-sitter-cpp tree-sitter-python tree-sitter-markdown tree-sitter-markdown-inline)
 target_link_libraries(zedit_core PUBLIC nlohmann_json::nlohmann_json)
 target_link_libraries(zedit_core PUBLIC lua)
 find_package(Threads REQUIRED)

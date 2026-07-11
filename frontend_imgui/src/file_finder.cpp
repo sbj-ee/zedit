@@ -268,10 +268,4 @@ void render_find_file_popup(Editor& ed) {
                        [](Editor& editor, const std::string& path) { editor.open_buffer(path); });
 }
 
-void render_compare_with_popup(Editor& ed) {
-  static FinderState state;
-  render_fuzzy_picker(ed, "Compare With", state,
-                       [](Editor& editor, const std::string& path) { editor.diff_with(path); });
-}
-
 }  // namespace zedit::frontend

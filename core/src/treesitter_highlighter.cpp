@@ -4,38 +4,9 @@
 
 #include <cstring>
 
+#include "capture_kind.hpp"
+
 namespace zedit::core {
-
-namespace {
-
-// Capture names carry dotted suffixes ("function.special",
-// "variable.builtin", ...); usually only the first segment decides the
-// color. Markdown's "text.*" captures are the exception -- title/literal/
-// uri/reference mean different things and need distinct colors, so they're
-// matched on the full name before falling through to the generic rule.
-TokenKind capture_name_to_kind(std::string_view name) {
-  if (name == "text.title") return TokenKind::Keyword;
-  if (name == "text.literal") return TokenKind::String;
-  if (name == "text.uri") return TokenKind::String;
-  if (name == "text.reference") return TokenKind::Constant;
-
-  size_t dot = name.find('.');
-  std::string_view base = (dot == std::string_view::npos) ? name : name.substr(0, dot);
-
-  if (base == "comment") return TokenKind::Comment;
-  if (base == "string") return TokenKind::String;
-  if (base == "number") return TokenKind::Number;
-  if (base == "keyword" || base == "label") return TokenKind::Keyword;
-  if (base == "type" || base == "module") return TokenKind::Type;
-  if (base == "function") return TokenKind::Function;
-  if (base == "variable" || base == "property") return TokenKind::Variable;
-  if (base == "operator") return TokenKind::Operator;
-  if (base == "delimiter" || base == "punctuation") return TokenKind::Punctuation;
-  if (base == "constant") return TokenKind::Constant;
-  return TokenKind::None;
-}
-
-}  // namespace
 
 TreeSitterHighlighter::TreeSitterHighlighter(const TSLanguage* language,
                                               const char* query_source) {

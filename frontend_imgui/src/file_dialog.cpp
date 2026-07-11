@@ -231,4 +231,64 @@ void render_save_as_popup(Editor& ed) {
   ImGui::EndPopup();
 }
 
+void render_compare_with_popup(Editor& ed) {
+  static fs::path current_dir;
+  static std::array<char, 1024> path_buf{};
+  static bool initialized = false;
+  static std::string error_message;
+
+  if (!ImGui::BeginPopupModal("Compare With", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    initialized = false;
+    return;
+  }
+
+  bool just_opened = !initialized;
+  if (!initialized) {
+    current_dir = starting_directory(ed.filename());
+    path_buf[0] = '\0';
+    error_message.clear();
+    initialized = true;
+  }
+
+  ImGui::TextUnformatted(current_dir.string().c_str());
+  ImGui::Separator();
+
+  bool double_clicked = false;
+  if (std::optional<std::string> picked = render_directory_browser(current_dir, double_clicked)) {
+    std::string full = (current_dir / *picked).string();
+    std::snprintf(path_buf.data(), path_buf.size(), "%s", full.c_str());
+  }
+  bool confirmed_by_doubleclick = double_clicked;
+
+  if (just_opened) {
+    ImGui::SetKeyboardFocusHere();
+  }
+  bool confirmed = ImGui::InputText("Path", path_buf.data(), path_buf.size(),
+                                     ImGuiInputTextFlags_EnterReturnsTrue);
+  confirmed = ImGui::Button("Compare") || confirmed || confirmed_by_doubleclick;
+  ImGui::SameLine();
+  bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
+
+  if (confirmed && path_buf[0] != '\0') {
+    try {
+      ed.diff_with(path_buf.data());
+      error_message.clear();
+    } catch (const zedit::core::FileTooLargeError& e) {
+      // Keep the popup open so the message is actually visible instead
+      // of vanishing the instant it appears.
+      error_message = e.what();
+      confirmed = false;
+    }
+  }
+  if (!error_message.empty()) {
+    ImGui::TextColored(ImVec4(0.9f, 0.35f, 0.35f, 1.0f), "%s", error_message.c_str());
+  }
+  if (confirmed || cancelled) {
+    path_buf[0] = '\0';
+    initialized = false;
+    ImGui::CloseCurrentPopup();
+  }
+  ImGui::EndPopup();
+}
+
 }  // namespace zedit::frontend
