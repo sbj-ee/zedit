@@ -22,6 +22,39 @@ using zedit::core::PieceTable;
 
 namespace {
 
+constexpr float kGutterRightMargin = 8.0f;
+constexpr float kGutterLeftMargin = 8.0f;
+
+// Wide enough for the buffer's largest line number, plus margins on both
+// sides. Grows as the file grows (e.g. from 3 digits to 4 at line 1000)
+// rather than being fixed, so short files don't waste horizontal space.
+float compute_gutter_width(size_t total_lines, float char_width) {
+  int digits = 1;
+  size_t n = total_lines;
+  while (n >= 10) {
+    n /= 10;
+    ++digits;
+  }
+  return kGutterLeftMargin + static_cast<float>(digits) * char_width + kGutterRightMargin;
+}
+
+// Right-aligned line numbers, dimmed except for the cursor's own line
+// (matching vim's relativenumber-adjacent "current line stands out"
+// convention, without going as far as full relative numbering).
+void draw_line_numbers(ImDrawList* draw_list, ImVec2 origin, size_t first_visible_line,
+                        size_t last_visible_line, float gutter_width, float line_height,
+                        size_t cursor_line) {
+  ImU32 dim_color = IM_COL32(120, 120, 120, 200);
+  for (size_t line = first_visible_line; line < last_visible_line; ++line) {
+    std::string label = std::to_string(line + 1);
+    float text_width = ImGui::CalcTextSize(label.c_str()).x;
+    float x = origin.x + gutter_width - kGutterRightMargin - text_width;
+    float y = origin.y + static_cast<float>(line - first_visible_line) * line_height;
+    draw_list->AddText(ImVec2(x, y), line == cursor_line ? default_text_color() : dim_color,
+                        label.c_str());
+  }
+}
+
 // Squiggly underline beneath each diagnostic's range (clipped to this
 // line), colored by severity. Drawn as a small zigzag rather than a
 // straight AddLine so it reads as "diagnostic" at a glance, distinct from
@@ -234,12 +267,16 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width) {
   size_t total_lines = buf.line_count();
   size_t last_line = std::min(first_visible_line_ + visible_lines, total_lines);
 
-  bool clicked = handle_mouse_click(ed, origin, first_visible_line_, total_lines, char_width,
+  float gutter_width = compute_gutter_width(total_lines, char_width);
+  ImVec2 text_origin(origin.x + gutter_width, origin.y);
+
+  bool clicked = handle_mouse_click(ed, text_origin, first_visible_line_, total_lines, char_width,
                                      line_height);
 
-  draw_diff_backgrounds(draw_list, ed, origin, first_visible_line_, last_line,
-                         ImGui::GetWindowSize().x, line_height);
-  draw_selection(draw_list, ed, origin, first_visible_line_, last_line, char_width, line_height);
+  draw_diff_backgrounds(draw_list, ed, text_origin, first_visible_line_, last_line,
+                         ImGui::GetWindowSize().x - gutter_width, line_height);
+  draw_selection(draw_list, ed, text_origin, first_visible_line_, last_line, char_width,
+                 line_height);
 
   size_t viewport_start_byte = buf.line_start_offset(first_visible_line_);
   size_t viewport_end_byte = (last_line < total_lines) ? buf.line_start_offset(last_line) : buf.size();
@@ -247,19 +284,22 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width) {
       ed.highlighter().highlight(viewport_start_byte, viewport_end_byte);
 
   for (size_t line = first_visible_line_; line < last_line; ++line) {
-    float y = origin.y +
+    float y = text_origin.y +
                static_cast<float>(line - first_visible_line_) * line_height;
     std::string text = buf.line_text(line);
     size_t line_start_byte = buf.line_start_offset(line);
-    draw_line_text(draw_list, text, line_start_byte, visible_spans, ImVec2(origin.x, y));
+    draw_line_text(draw_list, text, line_start_byte, visible_spans, ImVec2(text_origin.x, y));
   }
 
-  draw_diagnostics(draw_list, ed, origin, first_visible_line_, last_line, char_width, line_height);
+  draw_diagnostics(draw_list, ed, text_origin, first_visible_line_, last_line, char_width,
+                    line_height);
+  draw_line_numbers(draw_list, origin, first_visible_line_, last_line, gutter_width, line_height,
+                     ed.cursor().line);
 
   Cursor cursor = ed.cursor();
-  float cursor_x = origin.x + static_cast<float>(cursor.col) * char_width;
+  float cursor_x = text_origin.x + static_cast<float>(cursor.col) * char_width;
   float cursor_y =
-      origin.y +
+      text_origin.y +
       static_cast<float>(cursor.line - first_visible_line_) * line_height;
   cursor_screen_pos_ = ImVec2(cursor_x, cursor_y);
   bool block_cursor = (ed.mode() != Mode::Insert);
