@@ -245,6 +245,10 @@ class Editor {
     mode_sm_.set_normal_remap(remap);
   }
 
+  // Enters Visual mode selecting the word under the cursor -- used by the
+  // frontend's double-click handling (see ModeStateMachine::select_word_at_cursor).
+  void select_word_at_cursor() { mode_sm_.select_word_at_cursor(*this); }
+
  private:
   struct UndoEntry {
     PieceTable::Snapshot buffer_snapshot;

@@ -21,6 +21,7 @@ enum class Key {
   CtrlA,
   CtrlP,
   CtrlC,
+  CtrlX,
   CtrlS,
   Unknown,
 };

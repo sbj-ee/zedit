@@ -21,6 +21,8 @@ using zedit::core::DiffLineStatus;
 using zedit::core::Editor;
 using zedit::core::HighlightSpan;
 using zedit::core::is_bracket_char;
+using zedit::core::Key;
+using zedit::core::KeyEvent;
 using zedit::core::LspDiagnostic;
 using zedit::core::Mode;
 using zedit::core::motion_matching_bracket;
@@ -230,7 +232,17 @@ void draw_bracket_highlight(ImDrawList* draw_list, ImVec2 origin, const std::vec
 
 bool handle_mouse_click(Editor& ed, ImVec2 origin, const std::vector<VisualRow>& rows,
                          float char_width, float line_height) {
-  if (!ImGui::IsWindowHovered() || !ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+  if (!ImGui::IsWindowHovered()) {
+    return false;
+  }
+  bool left_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+  bool right_clicked = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+  // The second click of a double-click also fires IsMouseClicked (left)
+  // for that same click, so double_clicked implies left_clicked -- no
+  // conflict between positioning the cursor and then also selecting the
+  // word there.
+  bool double_clicked = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+  if (!left_clicked && !right_clicked) {
     return false;
   }
   if (rows.empty() || char_width <= 0.0f || line_height <= 0.0f) {
@@ -252,6 +264,16 @@ bool handle_mouse_click(Editor& ed, ImVec2 origin, const std::vector<VisualRow>&
   rel_col = std::min(rel_col, max_col_in_row);
 
   ed.set_cursor(Cursor{row.buffer_line, row.start_col + rel_col});
+
+  if (right_clicked) {
+    // Paste at the click position -- reuses whatever Ctrl-P already does
+    // in the current mode (Normal: vim's linewise 'p'; Insert: splice
+    // the register's raw text at the cursor), rather than a new "paste
+    // here" code path, matching a GUI editor's own right-click-paste.
+    ed.handle_key(KeyEvent{Key::CtrlP, 0});
+  } else if (double_clicked) {
+    ed.select_word_at_cursor();
+  }
   return true;
 }
 

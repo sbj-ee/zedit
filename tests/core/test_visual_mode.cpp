@@ -33,6 +33,38 @@ void feed(Editor& ed, std::string_view keys) {
 
 }  // namespace
 
+TEST_CASE("select_word_at_cursor selects the word under the cursor", "[visual]") {
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("hello world"));
+  ed.set_cursor(Cursor{0, 7});  // sitting inside "world"
+  ed.select_word_at_cursor();
+  REQUIRE(ed.mode() == Mode::Visual);
+  REQUIRE(ed.visual_anchor().line == 0);
+  REQUIRE(ed.visual_anchor().col == 6);
+  REQUIRE(ed.cursor().line == 0);
+  REQUIRE(ed.cursor().col == 10);
+  feed(ed, "d");
+  REQUIRE(ed.buffer().to_string() == "hello ");
+}
+
+TEST_CASE("select_word_at_cursor selects a punctuation run, not the surrounding words",
+          "[visual]") {
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("foo::bar"));
+  ed.set_cursor(Cursor{0, 3});  // sitting on the first ':'
+  ed.select_word_at_cursor();
+  REQUIRE(ed.visual_anchor().line == 0);
+  REQUIRE(ed.visual_anchor().col == 3);
+  REQUIRE(ed.cursor().line == 0);
+  REQUIRE(ed.cursor().col == 4);
+}
+
+TEST_CASE("select_word_at_cursor on an empty buffer is a no-op", "[visual]") {
+  Editor ed;
+  ed.select_word_at_cursor();
+  REQUIRE(ed.mode() == Mode::Normal);
+}
+
 TEST_CASE("v enters Visual mode and Esc cancels without changes", "[visual]") {
   Editor ed;
   ed.buffer() = PieceTable(std::string("hello"));

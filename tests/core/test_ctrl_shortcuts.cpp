@@ -114,6 +114,41 @@ TEST_CASE("Ctrl-C in Visual mode copies the selection and exits to Normal mode",
   REQUIRE(ed.buffer().to_string() == "hello world");
 }
 
+TEST_CASE("Ctrl-X in Normal mode cuts the current line", "[ctrl][editor]") {
+  Editor ed;
+  feed(ed, "iline one\nline two\x1b");
+  ed.set_cursor(Cursor{0, 0});
+  press(ed, Key::CtrlX);
+  REQUIRE(ed.unnamed_register().text == "line one\n");
+  REQUIRE(ed.unnamed_register().linewise);
+  // Unlike Ctrl-C, cut removes the line from the buffer.
+  REQUIRE(ed.buffer().to_string() == "line two");
+}
+
+TEST_CASE("Ctrl-X in Visual mode cuts the selection and exits to Normal mode",
+          "[ctrl][editor]") {
+  Editor ed;
+  feed(ed, "ihello world\x1b");
+  ed.set_cursor(Cursor{0, 0});
+  feed(ed, "v");
+  feed(ed, "llll");  // select "hello" (5 chars, cursor lands on the 5th)
+  press(ed, Key::CtrlX);
+  REQUIRE(ed.mode() == Mode::Normal);
+  REQUIRE(ed.unnamed_register().text == "hello");
+  REQUIRE_FALSE(ed.unnamed_register().linewise);
+  REQUIRE(ed.buffer().to_string() == " world");
+}
+
+TEST_CASE("Ctrl-X can be pasted right back with Ctrl-P", "[ctrl][editor]") {
+  Editor ed;
+  feed(ed, "iline one\nline two\x1b");
+  ed.set_cursor(Cursor{0, 0});
+  press(ed, Key::CtrlX);
+  REQUIRE(ed.buffer().to_string() == "line two");
+  press(ed, Key::CtrlP);
+  REQUIRE(ed.buffer().to_string() == "line two\nline one");
+}
+
 TEST_CASE("Ctrl-S saves the buffer to disk", "[ctrl][editor]") {
   std::string path = "/tmp/zedit_test_ctrl_s_save.txt";
   Editor ed;

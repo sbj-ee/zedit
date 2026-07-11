@@ -48,6 +48,14 @@ class ModeStateMachine {
     }
   }
 
+  // Enters Visual mode selecting the word (or punctuation/whitespace run)
+  // under the current cursor position -- the same run "viw" would select.
+  // Used by the frontend's double-click handling; a no-op on an empty
+  // buffer. Public (unlike select_all, only reachable via Ctrl-A) since
+  // there's no KeyEvent for "the user double-clicked here" to route it
+  // through handle_key.
+  void select_word_at_cursor(Editor& ed);
+
  private:
   struct PendingCommand {
     int count = 0;

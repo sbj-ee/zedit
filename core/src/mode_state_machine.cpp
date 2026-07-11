@@ -242,6 +242,17 @@ void ModeStateMachine::select_all(Editor& ed) {
   ed.set_cursor(Cursor{last_line, 0});
 }
 
+void ModeStateMachine::select_word_at_cursor(Editor& ed) {
+  reset_pending();
+  Range r = text_object_inner_word(ed.buffer(), ed.cursor_offset());
+  if (r.end <= r.start) {
+    return;  // empty buffer -- nothing to select
+  }
+  visual_anchor_ = ed.offset_to_cursor(r.start);
+  mode_ = Mode::Visual;
+  ed.set_cursor(ed.offset_to_cursor(r.end - 1));  // Visual's cursor is inclusive of the last char
+}
+
 void ModeStateMachine::enter_visual(Mode which, Editor& ed) {
   visual_anchor_ = ed.cursor();
   mode_ = which;
@@ -383,6 +394,16 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     // line, matching vim's "yy" -- the closest thing to "copy" you can do
     // without a selection.
     execute_operator_linewise(OperatorKind::Yank, ed.cursor().line, 1, ed,
+                               pending_.register_name);
+    reset_pending();
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlX) {
+    // Standalone Ctrl-X (no active Visual selection) cuts the current
+    // line, matching vim's "dd" -- delete already yanks into the
+    // register, so this is "copy the line, then remove it" in one step,
+    // same relationship CtrlC/CtrlX have in any GUI editor.
+    execute_operator_linewise(OperatorKind::Delete, ed.cursor().line, 1, ed,
                                pending_.register_name);
     reset_pending();
     return KeyResult{};
@@ -673,6 +694,13 @@ KeyResult ModeStateMachine::handle_visual(KeyEvent ev, Editor& ed) {
     // 'y' in Visual mode (yank always exits Visual) and a GUI editor's
     // Ctrl-C (copy never destroys the selection's source text).
     finish_operator_on_visual_selection(OperatorKind::Yank, ed);
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlX) {
+    // Cut the selection -- same as pressing 'd' in Visual mode (delete
+    // yanks into the register first), just reachable via the GUI-editor
+    // shortcut too.
+    finish_operator_on_visual_selection(OperatorKind::Delete, ed);
     return KeyResult{};
   }
   if (ev.key != Key::Char) {

@@ -13,11 +13,25 @@ void render_find_replace_popup(Editor& ed) {
   static std::array<char, 512> find_buf{};
   static std::array<char, 512> replace_buf{};
   static std::string status;
+  static bool initialized = false;
 
   if (!ImGui::BeginPopupModal("Find and Replace", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    // Not open (or just closed) this frame -- reset so the next open
+    // re-focuses the Find field instead of leaving it stale.
+    initialized = false;
     return;
   }
 
+  if (!initialized) {
+    // Without this, no widget has keyboard focus the first frame the
+    // popup is open, so io.WantTextInput stays false and typing right
+    // away falls through to the editor underneath instead of this
+    // field -- confirmed live: typed text landed in the buffer as vim
+    // keystrokes (e.g. "banana" as "b" motion, "a" enter Insert, then
+    // "nana" inserted literally) instead of in the Find box.
+    ImGui::SetKeyboardFocusHere();
+    initialized = true;
+  }
   ImGui::InputText("Find", find_buf.data(), find_buf.size());
   ImGui::InputText("Replace with", replace_buf.data(), replace_buf.size());
 
