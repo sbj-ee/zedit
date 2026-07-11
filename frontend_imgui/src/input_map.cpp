@@ -31,7 +31,7 @@ std::vector<zedit::core::KeyEvent> collect_key_events(ImGuiIO& io) {
   add_if_pressed(ImGuiKey_UpArrow, Key::Up);
   add_if_pressed(ImGuiKey_DownArrow, Key::Down);
 
-  // Ctrl+R / Ctrl+W don't produce InputQueueCharacters entries (GLFW
+  // Ctrl+<letter> combos don't produce InputQueueCharacters entries (GLFW
   // suppresses char callbacks while a modifier is held), so they're only
   // reachable via this explicit modifier + key-press check.
   bool ctrl_held = ImGui::IsKeyDown(ImGuiMod_Ctrl);
@@ -40,6 +40,18 @@ std::vector<zedit::core::KeyEvent> collect_key_events(ImGuiIO& io) {
   }
   if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_W, true)) {
     events.push_back(KeyEvent{Key::CtrlW, 0});
+  }
+  if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_A, true)) {
+    events.push_back(KeyEvent{Key::CtrlA, 0});
+  }
+  if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_P, true)) {
+    events.push_back(KeyEvent{Key::CtrlP, 0});
+  }
+  if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_C, true)) {
+    events.push_back(KeyEvent{Key::CtrlC, 0});
+  }
+  if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_S, true)) {
+    events.push_back(KeyEvent{Key::CtrlS, 0});
   }
 
   return events;

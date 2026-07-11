@@ -7,6 +7,8 @@ add_executable(zedit
   src/font_manager.cpp
   src/tab_bar.cpp
   src/theme.cpp
+  src/menu_bar.cpp
+  src/toolbar.cpp
 )
 
 target_link_libraries(zedit PRIVATE

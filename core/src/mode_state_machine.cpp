@@ -31,6 +31,20 @@ size_t offset_right_within_line(Editor& ed, size_t offset) {
 }  // namespace
 
 KeyResult ModeStateMachine::handle_key(KeyEvent ev, Editor& ed) {
+  if (ev.key == Key::CtrlA && mode_ != Mode::CommandLine && mode_ != Mode::Search) {
+    select_all(ed);
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlS) {
+    // Global save shortcut -- works from any mode (including mid-typing
+    // in Insert, like every other GUI editor's Ctrl-S) without leaving it.
+    try {
+      ed.save();
+    } catch (const FileIoError& e) {
+      last_error_ = e.what();
+    }
+    return KeyResult{};
+  }
   switch (mode_) {
     case Mode::Normal:
       return handle_normal(ev, ed);
@@ -199,6 +213,15 @@ void ModeStateMachine::finish_pending_operator(char ch, Editor& ed) {
   reset_pending();
 }
 
+void ModeStateMachine::select_all(Editor& ed) {
+  reset_pending();
+  mode_ = Mode::VisualLine;
+  visual_anchor_ = Cursor{0, 0};
+  size_t total_lines = ed.buffer().line_count();
+  size_t last_line = total_lines > 0 ? total_lines - 1 : 0;
+  ed.set_cursor(Cursor{last_line, 0});
+}
+
 void ModeStateMachine::enter_visual(Mode which, Editor& ed) {
   visual_anchor_ = ed.cursor();
   mode_ = which;
@@ -325,6 +348,22 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
   }
   if (ev.key == Key::CtrlW) {
     ed.next_window();
+    reset_pending();
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlP) {
+    execute_paste(/*before=*/false, 1, ed, pending_.register_name);
+    last_change_ = LastChange{ChangeKind::Paste, OperatorKind::Delete, 0, 0, 1, false,
+                               pending_.register_name, {}};
+    reset_pending();
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlC) {
+    // Standalone Ctrl-C (no active Visual selection) copies the current
+    // line, matching vim's "yy" -- the closest thing to "copy" you can do
+    // without a selection.
+    execute_operator_linewise(OperatorKind::Yank, ed.cursor().line, 1, ed,
+                               pending_.register_name);
     reset_pending();
     return KeyResult{};
   }
@@ -547,6 +586,15 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
       ed.insert_char(' ');
       insert_session_text_.push_back(' ');
     }
+  } else if (ev.key == Key::CtrlP) {
+    // Unlike Normal-mode Ctrl-P (which is vim's 'p': linewise paste lands
+    // on its own line below), this splices the register's raw text in at
+    // the cursor, matching how paste behaves inside a text field in any
+    // GUI editor -- you're mid-sentence, not placing a whole line.
+    for (char c : ed.unnamed_register().text) {
+      ed.insert_char(c);
+      insert_session_text_.push_back(c);
+    }
   }
   return KeyResult{};
 }
@@ -571,6 +619,13 @@ KeyResult ModeStateMachine::handle_visual(KeyEvent ev, Editor& ed) {
   }
   if (ev.key == Key::Down) {
     apply_plain_motion('j', ed, 1);
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlC) {
+    // Copy the selection and return to Normal mode, matching vim's own
+    // 'y' in Visual mode (yank always exits Visual) and a GUI editor's
+    // Ctrl-C (copy never destroys the selection's source text).
+    finish_operator_on_visual_selection(OperatorKind::Yank, ed);
     return KeyResult{};
   }
   if (ev.key != Key::Char) {

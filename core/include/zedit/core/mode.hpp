@@ -18,6 +18,10 @@ enum class Key {
   Down,
   CtrlR,
   CtrlW,
+  CtrlA,
+  CtrlP,
+  CtrlC,
+  CtrlS,
   Unknown,
 };
 

@@ -104,6 +104,13 @@ class ModeStateMachine {
   // `repeat` steps (Normal) or extend the selection (Visual, repeat==1).
   bool apply_plain_motion(char ch, Editor& ed, int repeat);
 
+  // Ctrl-A, handled at the top of handle_key regardless of mode (Normal,
+  // Insert, or Visual/VisualLine -- but not CommandLine/Search, where
+  // there's no document selection to speak of): selects the whole buffer
+  // as a linewise Visual selection, matching a GUI editor's "select all"
+  // rather than vim's own Ctrl-A (increment number under cursor), which
+  // zedit doesn't implement.
+  void select_all(Editor& ed);
   void enter_visual(Mode which, Editor& ed);
   void finish_operator_on_visual_selection(OperatorKind op, Editor& ed);
   void finish_pending_operator(char ch, Editor& ed);

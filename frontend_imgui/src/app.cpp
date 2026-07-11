@@ -5,8 +5,10 @@
 #include <utility>
 
 #include "input_map.hpp"
+#include "menu_bar.hpp"
 #include "status_line.hpp"
 #include "tab_bar.hpp"
+#include "toolbar.hpp"
 
 namespace zedit::frontend {
 
@@ -16,15 +18,24 @@ App::App(zedit::core::Editor editor, ImFont* font)
 void App::render_frame(ImGuiIO& io) {
   editor_.poll_lsp();
 
-  for (const zedit::core::KeyEvent& ev : collect_key_events(io)) {
-    // Any keypress dismisses a currently-shown hover popup (it still goes
-    // on to perform its normal action -- this isn't a modal "eat the key
-    // that closes me" popup, just a tooltip that clears on the next input).
-    if (editor_.hover_text().has_value()) {
-      editor_.dismiss_hover();
+  // While a popup text field (e.g. the menu bar's "Open..."/"Save As..."
+  // path box) wants keyboard input, none of it should also reach the
+  // editor -- otherwise typing a path would simultaneously type into the
+  // document underneath.
+  if (!io.WantTextInput) {
+    for (const zedit::core::KeyEvent& ev : collect_key_events(io)) {
+      // Any keypress dismisses a currently-shown hover popup (it still
+      // goes on to perform its normal action -- this isn't a modal "eat
+      // the key that closes me" popup, just a tooltip that clears on the
+      // next input).
+      if (editor_.hover_text().has_value()) {
+        editor_.dismiss_hover();
+      }
+      editor_.handle_key(ev);
     }
-    editor_.handle_key(ev);
   }
+
+  render_menu_bar(editor_);
 
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -37,7 +48,12 @@ void App::render_frame(ImGuiIO& io) {
                             ImGuiWindowFlags_NoBringToFrontOnFocus;
   ImGui::Begin("zedit_main", nullptr, flags);
 
+  render_toolbar(editor_);
+  ImGui::SameLine();
+  ImGui::TextUnformatted("|");
+  ImGui::SameLine();
   render_tab_bar(editor_);
+  ImGui::Separator();
 
   float status_line_height = ImGui::GetTextLineHeightWithSpacing() + 6.0f;
   float content_height = ImGui::GetContentRegionAvail().y - status_line_height;

@@ -27,6 +27,7 @@ add_executable(zedit_tests
   core/test_editor_lsp.cpp
   core/test_config.cpp
   core/test_config_integration.cpp
+  core/test_ctrl_shortcuts.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
