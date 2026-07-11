@@ -200,12 +200,14 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       ImGui::MenuItem("Word Wrap", nullptr, &word_wrap);
       ImGui::Separator();
       // MenuItem flips *p_selected itself and returns true on click, so
-      // by the time this branch runs, gedit_mode already holds the new
-      // target value -- just apply it.
-      bool gedit_mode = (ed.editing_style() == zedit::core::EditingStyle::Gedit);
-      if (ImGui::MenuItem("Gedit Mode", nullptr, &gedit_mode)) {
-        ed.set_editing_style(gedit_mode ? zedit::core::EditingStyle::Gedit
-                                         : zedit::core::EditingStyle::Vim);
+      // by the time this branch runs, vi_mode already holds the new
+      // target value -- just apply it. Framed as "Vi Mode" (checked =
+      // vim's modal grammar, the default) rather than "Gedit Mode" so the
+      // checkbox reads naturally either way it's toggled.
+      bool vi_mode = (ed.editing_style() == zedit::core::EditingStyle::Vim);
+      if (ImGui::MenuItem("Vi Mode", nullptr, &vi_mode)) {
+        ed.set_editing_style(vi_mode ? zedit::core::EditingStyle::Vim
+                                      : zedit::core::EditingStyle::Gedit);
       }
       ImGui::EndMenu();
     }
