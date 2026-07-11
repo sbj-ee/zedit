@@ -1,11 +1,32 @@
 # zedit
 
 A modal, vim-like text editor written in C++20, built on Dear ImGui + GLFW + OpenGL.
-Targets Linux and macOS. The binary is `ze` — short to type, like `vi`.
+Targets Linux and macOS. The binary is `ze` — short to type, like `vi`. Think
+gedit's approachable GUI chrome (tabs, menus, a toolbar, mouse support) layered
+over neovim's modal, keyboard-driven editing power.
+
+## Features
+
+- Modal editing: Normal/Insert/Visual/Visual Line/Command-line/Search modes,
+  motions (`hjkl`, `w`/`b`/`e`, `0`/`$`), operators (`d`/`y`/`c`) composable
+  with counts and motions, registers (named and unnamed), undo/redo, dot-repeat
+- Multiple buffers and windows (`:e`, `:bn`/`:bp`, `:sp`/`:vsp`, Ctrl-W),
+  side-by-side file compare (`:diff`)
+- Syntax highlighting via tree-sitter (C++, Python, Markdown)
+- LSP client (clangd): live diagnostics, go-to-definition (`gd`), hover (`K`)
+- Lua-based configuration: `~/.config/zedit/init.lua` sets options, colors,
+  and keymaps via a small `zedit.*` API; `:lua <code>` runs Lua live as a
+  scripting hook
+- GUI-editor shortcuts alongside the modal keybindings: Ctrl-A (select all),
+  Ctrl-C (copy), Ctrl-P (paste), Ctrl-S (save) — all work mid-Insert too
+- Menu bar (File/Edit/View/Help) and toolbar for mouse-driven use
+- Status bar: mode, cursor position, word count, file path
 
 ## Status
 
-Early development (M2 in progress: operators, undo/redo, registers, Visual mode).
+Core roadmap (M0–M7) complete: scaffolding, editing/motions/operators,
+undo/registers/Visual mode, search/buffers, syntax highlighting, splits/diff,
+LSP, and the Lua config system. Actively growing from there.
 
 ## Building
 
@@ -24,9 +45,26 @@ cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
 
+## Configuration
+
+Drop a `~/.config/zedit/init.lua` (or set `$ZEDIT_CONFIG` to a path) to
+customize options, colors, and keymaps:
+
+```lua
+zedit.set_option("tabstop", 2)
+zedit.set_color("comment", "#6a9955")
+zedit.map("n", "Q", "dd")  -- non-recursive remap, like :noremap
+```
+
 ## Project layout
 
 - `core/` — the editing engine (buffer, cursor, modal state machine, motions,
-  operators, undo, file I/O). No GUI dependencies; independently testable.
-- `frontend_imgui/` — the Dear ImGui/GLFW/OpenGL desktop frontend.
-- `tests/` — Catch2 unit tests for `core/`.
+  operators, undo, file I/O, syntax highlighting, LSP client, Lua config).
+  No GUI dependencies; independently testable.
+- `frontend_imgui/` — the Dear ImGui/GLFW/OpenGL desktop frontend (menu bar,
+  toolbar, tabs, text view, status bar).
+- `tests/` — Catch2 unit and integration tests for `core/`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
