@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <array>
 #include <string>
 
 #include "file_dialog.hpp"
@@ -63,36 +62,6 @@ void sort_selection_or_all(Editor& ed, bool reverse) {
   ed.sort_lines(start, end, reverse);
 }
 
-// Popup path-entry buffers are static (one editor, one menu bar, one
-// popup open at a time) rather than App members -- keeps the popup
-// self-contained here instead of threading text-input state through
-// App's public surface for something only this file touches.
-void save_as_popup(Editor& ed) {
-  static std::array<char, 512> path{};
-  if (!ImGui::BeginPopupModal("Save As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-    return;
-  }
-  bool confirmed = ImGui::InputText("Path", path.data(), path.size(),
-                                     ImGuiInputTextFlags_EnterReturnsTrue);
-  confirmed = ImGui::Button("Save") || confirmed;
-  ImGui::SameLine();
-  bool cancelled = ImGui::Button("Cancel");
-  if (confirmed && path[0] != '\0') {
-    try {
-      ed.save_as(path.data());
-    } catch (const FileIoError&) {
-      // Nothing more actionable to do from a modal popup than leave the
-      // buffer dirty -- the status line already surfaces save failures
-      // for the ":w"/Ctrl-S paths, but this popup has no such display.
-    }
-  }
-  if (confirmed || cancelled) {
-    path[0] = '\0';
-    ImGui::CloseCurrentPopup();
-  }
-  ImGui::EndPopup();
-}
-
 void about_popup(ImTextureID icon_texture) {
   if (!ImGui::BeginPopupModal("About zedit", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     return;
@@ -122,6 +91,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   bool about_requested = false;
   bool find_replace_requested = false;
   bool find_file_requested = false;
+  bool compare_with_requested = false;
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("File")) {
@@ -222,32 +192,13 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
         sort_selection_or_all(ed, /*reverse=*/true);
       }
       ImGui::Separator();
-      if (ImGui::BeginMenu("Compare")) {
-        // Lists every other open buffer with a real path; picking one
-        // diffs it against whatever's in the current window. Reuses
-        // Editor::diff_with() exactly as ":diff <path>" does -- it
-        // already reuses an already-open buffer matching that path
-        // rather than reopening it, so this needs no new core logic.
-        // Unnamed/unsaved buffers are skipped: diff_with's path-based
-        // buffer lookup has no reliable way to target one specifically
-        // (their "path" is just "", which every other unnamed buffer
-        // would also match).
-        size_t count = ed.buffer_count();
-        size_t current = ed.current_buffer_index();
-        bool any_others = false;
-        for (size_t i = 0; i < count; ++i) {
-          if (i == current || ed.buffer_filename(i).empty()) {
-            continue;
-          }
-          any_others = true;
-          if (ImGui::MenuItem(ed.buffer_filename(i).c_str())) {
-            ed.diff_with(ed.buffer_filename(i));
-          }
-        }
-        if (!any_others) {
-          ImGui::TextDisabled("(open a second file first)");
-        }
-        ImGui::EndMenu();
+      // Fuzzy-picks any file in the tree (not just already-open buffers)
+      // and diffs it against the current window -- see
+      // render_compare_with_popup(); Editor::diff_with() opens the file
+      // first if it isn't already a buffer, so this needs no new core
+      // logic either.
+      if (ImGui::MenuItem("Compare With...")) {
+        compare_with_requested = true;
       }
       ImGui::EndMenu();
     }
@@ -289,11 +240,15 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   if (find_file_requested) {
     ImGui::OpenPopup("Find File");
   }
+  if (compare_with_requested) {
+    ImGui::OpenPopup("Compare With");
+  }
   render_open_file_popup(ed);
-  save_as_popup(ed);
+  render_save_as_popup(ed);
   about_popup(icon_texture);
   render_find_replace_popup(ed);
   render_find_file_popup(ed);
+  render_compare_with_popup(ed);
 }
 
 }  // namespace zedit::frontend
