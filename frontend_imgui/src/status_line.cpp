@@ -55,13 +55,15 @@ void render_status_line(const Editor& ed) {
       break;
   }
   Cursor c = ed.cursor();
+  size_t total_lines = ed.buffer().line_count();
   size_t words = count_words(ed.buffer().to_string());
-  // Position/word-count come before the path rather than after: they're
-  // always short, so keeping them first means they stay visible even when
-  // a long path runs past the window's right edge and gets clipped (this
-  // window has no horizontal scrolling).
-  ImGui::Text("-- %s --  %zu:%zu  %zu word%s  %s%s", mode_name, c.line + 1, c.col + 1, words,
-              words == 1 ? "" : "s", ed.filename().empty() ? "[No Name]" : ed.filename().c_str(),
+  // Position/line-count/word-count come before the path rather than
+  // after: they're always short, so keeping them first means they stay
+  // visible even when a long path runs past the window's right edge and
+  // gets clipped (this window has no horizontal scrolling).
+  ImGui::Text("-- %s --  %zu:%zu  %zu line%s  %zu word%s  %s%s", mode_name, c.line + 1, c.col + 1,
+              total_lines, total_lines == 1 ? "" : "s", words, words == 1 ? "" : "s",
+              ed.filename().empty() ? "[No Name]" : ed.filename().c_str(),
               ed.dirty() ? " [+]" : "");
 
   if (!ed.last_error().empty()) {
