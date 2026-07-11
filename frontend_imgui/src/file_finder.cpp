@@ -53,6 +53,43 @@ std::vector<std::string> scan_files(const fs::path& root) {
   return files;
 }
 
+// Walks upward from `start` looking for a ".git" directory and treats
+// that as the project root, falling back to `start` itself if none is
+// found by the time we reach the filesystem root. Anchoring the scan
+// here -- rather than the process's raw current working directory --
+// matters because zedit is often launched from wherever a shell/file
+// manager happened to be sitting, not necessarily the project itself;
+// scanning the launch cwd verbatim can sweep in an unrelated, enormous
+// tree sitting next to or above it (e.g. a Go module cache under
+// $HOME/go if zedit was launched from $HOME).
+fs::path find_project_root(const fs::path& start) {
+  std::error_code ec;
+  fs::path canonical = fs::canonical(start, ec);
+  if (ec) {
+    return start;
+  }
+  for (fs::path dir = canonical;; dir = dir.parent_path()) {
+    if (fs::exists(dir / ".git", ec)) {
+      return dir;
+    }
+    if (dir == dir.parent_path()) {
+      break;  // reached the filesystem root without finding one
+    }
+  }
+  return canonical;
+}
+
+// Where a picker should scan from: the open buffer's directory (or the
+// cwd for an unnamed buffer), walked up to that file's project root.
+fs::path scan_root_for(const Editor& ed) {
+  fs::path start =
+      ed.filename().empty() ? fs::current_path() : fs::path(ed.filename()).parent_path();
+  if (start.empty()) {
+    start = fs::current_path();
+  }
+  return find_project_root(start);
+}
+
 // Per-instance state for one fuzzy picker popup. Kept as a plain struct
 // (rather than function-local statics) so render_find_file_popup and
 // render_compare_with_popup -- two separate popups with two separate
@@ -61,6 +98,7 @@ std::vector<std::string> scan_files(const fs::path& root) {
 // otherwise have.
 struct FinderState {
   bool initialized = false;
+  fs::path root;
   std::vector<std::string> all_files;
   std::array<char, 512> query{};
   std::vector<std::string> filtered;
@@ -79,17 +117,27 @@ void render_fuzzy_picker(Editor& ed, const char* popup_name, FinderState& state,
     return;
   }
 
+  bool just_opened = !state.initialized;
   if (!state.initialized) {
-    state.all_files = scan_files(fs::current_path());
+    state.root = scan_root_for(ed);
+    state.all_files = scan_files(state.root);
     state.filtered = zedit::core::fuzzy_filter(state.query.data(), state.all_files);
     state.selected_index = 0;
     state.query[0] = '\0';
-    ImGui::SetKeyboardFocusHere();
     state.initialized = true;
   }
 
   ImGui::PushID(popup_name);
 
+  // Shown so it's obvious (and verifiable) what's actually being
+  // searched -- see find_project_root()'s doc comment for why this
+  // isn't just the process's cwd.
+  ImGui::TextUnformatted(state.root.string().c_str());
+  ImGui::Separator();
+
+  if (just_opened) {
+    ImGui::SetKeyboardFocusHere();
+  }
   bool query_changed = ImGui::InputText(
       "##query", state.query.data(), state.query.size(),
       ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
@@ -130,7 +178,12 @@ void render_fuzzy_picker(Editor& ed, const char* popup_name, FinderState& state,
 
   if (confirmed && state.selected_index >= 0 &&
       state.selected_index < static_cast<int>(state.filtered.size())) {
-    on_select(ed, state.filtered[static_cast<size_t>(state.selected_index)]);
+    // Absolute, not the root-relative display string -- correctness
+    // here can't depend on the process's cwd matching state.root (it
+    // usually won't, per find_project_root()'s doc comment).
+    std::string absolute =
+        (state.root / state.filtered[static_cast<size_t>(state.selected_index)]).string();
+    on_select(ed, absolute);
     cancelled = true;  // reuse the same close path below
   }
 
