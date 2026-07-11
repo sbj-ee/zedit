@@ -3,8 +3,10 @@
 #include <imgui.h>
 
 #include <array>
+#include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -99,11 +101,44 @@ fs::path scan_root_for(const Editor& ed) {
 struct FinderState {
   bool initialized = false;
   fs::path root;
+  std::array<char, 1024> root_input{};  // editable mirror of root, for "cd"-ing elsewhere
   std::vector<std::string> all_files;
   std::array<char, 512> query{};
   std::vector<std::string> filtered;
   int selected_index = 0;
 };
+
+void set_root(FinderState& state, fs::path new_root) {
+  state.root = std::move(new_root);
+  std::snprintf(state.root_input.data(), state.root_input.size(), "%s",
+                state.root.string().c_str());
+  state.all_files = scan_files(state.root);
+  state.filtered = zedit::core::fuzzy_filter(state.query.data(), state.all_files);
+  state.selected_index = 0;
+}
+
+// Resolves whatever the user typed into the root field into a directory
+// to scan: relative input (including "..") is resolved against the
+// *current* root rather than the process cwd, so typing ".." reliably
+// goes up from wherever the popup is currently looking, and an absolute
+// path (e.g. "/home/user/Sync/") jumps anywhere on disk regardless of
+// the auto-detected project root -- the project-root default is a
+// starting point, not a sandbox.
+std::optional<fs::path> resolve_typed_root(const fs::path& current_root, const char* typed) {
+  fs::path candidate(typed);
+  if (candidate.empty()) {
+    return std::nullopt;
+  }
+  if (candidate.is_relative()) {
+    candidate = current_root / candidate;
+  }
+  std::error_code ec;
+  fs::path canonical = fs::canonical(candidate, ec);
+  if (ec || !fs::is_directory(canonical, ec) || ec) {
+    return std::nullopt;
+  }
+  return canonical;
+}
 
 // Shared picker implementation: scans on open, fuzzy-filters live as you
 // type, Enter/click hands the chosen path to `on_select` (open vs.
@@ -119,20 +154,32 @@ void render_fuzzy_picker(Editor& ed, const char* popup_name, FinderState& state,
 
   bool just_opened = !state.initialized;
   if (!state.initialized) {
-    state.root = scan_root_for(ed);
-    state.all_files = scan_files(state.root);
-    state.filtered = zedit::core::fuzzy_filter(state.query.data(), state.all_files);
-    state.selected_index = 0;
+    set_root(state, scan_root_for(ed));
     state.query[0] = '\0';
     state.initialized = true;
   }
 
   ImGui::PushID(popup_name);
 
-  // Shown so it's obvious (and verifiable) what's actually being
-  // searched -- see find_project_root()'s doc comment for why this
-  // isn't just the process's cwd.
-  ImGui::TextUnformatted(state.root.string().c_str());
+  // Editable, not just a display -- the auto-detected project root is a
+  // starting point, not a sandbox; typing a different path (absolute,
+  // or ".." relative to wherever this is currently looking) and
+  // pressing Enter re-scans from there. See resolve_typed_root().
+  bool root_confirmed = ImGui::InputText("##root", state.root_input.data(),
+                                          state.root_input.size(),
+                                          ImGuiInputTextFlags_EnterReturnsTrue);
+  if (root_confirmed) {
+    if (std::optional<fs::path> resolved =
+            resolve_typed_root(state.root, state.root_input.data())) {
+      set_root(state, *resolved);
+    } else {
+      // Invalid input (typo, not a directory, doesn't exist) -- restore
+      // the field to the last root that actually worked rather than
+      // leaving a dead-end path sitting there.
+      std::snprintf(state.root_input.data(), state.root_input.size(), "%s",
+                    state.root.string().c_str());
+    }
+  }
   ImGui::Separator();
 
   if (just_opened) {
