@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.21)
+project(zedit CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
+option(ZEDIT_BUILD_TESTS "Build the Catch2 test suite" ON)
+
+include(cmake/CompilerWarnings.cmake)
+include(cmake/FetchDeps.cmake)
+
+add_subdirectory(core)
+add_subdirectory(frontend_imgui)
+
+if(ZEDIT_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
