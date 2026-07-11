@@ -209,6 +209,91 @@ bool Editor::jump_to_search(bool forward) {
   return true;
 }
 
+bool Editor::replace_current_match(std::string_view find, std::string_view replace_with) {
+  if (find.empty()) {
+    return false;
+  }
+  size_t offset = cursor_offset();
+  if (offset + find.size() > buffer().size()) {
+    return false;
+  }
+  if (buffer().text_range(offset, find.size()) != find) {
+    return false;
+  }
+  begin_undo_group();
+  erase_range(offset, find.size());
+  insert_text(offset, replace_with);
+  set_cursor(offset_to_cursor(offset + replace_with.size()));
+  clamp_cursor_to_line();
+  return true;
+}
+
+size_t Editor::replace_all(std::string_view find, std::string_view replace_with) {
+  if (find.empty()) {
+    return 0;
+  }
+  std::string text = buffer().to_string();
+  std::vector<size_t> offsets;
+  size_t pos = 0;
+  while ((pos = text.find(find, pos)) != std::string::npos) {
+    offsets.push_back(pos);
+    pos += find.size();
+  }
+  if (offsets.empty()) {
+    return 0;
+  }
+  begin_undo_group();
+  // Back-to-front so earlier (not-yet-processed) offsets stay valid --
+  // an edit at a later offset never shifts anything before it.
+  for (auto it = offsets.rbegin(); it != offsets.rend(); ++it) {
+    erase_range(*it, find.size());
+    insert_text(*it, replace_with);
+  }
+  set_cursor(offset_to_cursor(offsets.front()));
+  clamp_cursor_to_line();
+  return offsets.size();
+}
+
+void Editor::sort_lines(size_t start_line, size_t end_line, bool reverse) {
+  size_t total = buffer().line_count();
+  if (total == 0 || start_line > end_line) {
+    return;
+  }
+  end_line = std::min(end_line, total - 1);
+
+  std::vector<std::string> lines;
+  lines.reserve(end_line - start_line + 1);
+  for (size_t l = start_line; l <= end_line; ++l) {
+    lines.push_back(buffer().line_text(l));
+  }
+  std::stable_sort(lines.begin(), lines.end());
+  if (reverse) {
+    std::reverse(lines.begin(), lines.end());
+  }
+
+  // Sorting never changes how many lines there are, only their order, so
+  // (unlike a linewise delete) there's no risk of leaving a dangling
+  // blank line behind -- the trailing-newline convention just needs to
+  // match whether this range runs through the buffer's actual end.
+  bool through_end = (end_line == total - 1);
+  std::string replacement;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    replacement += lines[i];
+    if (i + 1 < lines.size() || !through_end) {
+      replacement += '\n';
+    }
+  }
+
+  size_t erase_start = buffer().line_start_offset(start_line);
+  size_t erase_end = through_end ? buffer().size() : buffer().line_start_offset(end_line + 1);
+
+  begin_undo_group();
+  erase_range(erase_start, erase_end - erase_start);
+  insert_text(erase_start, replacement);
+  set_cursor(Cursor{start_line, 0});
+  clamp_cursor_to_line();
+}
+
 void Editor::begin_undo_group() {
   cur_buffer().undo_stack.push_back(UndoEntry{buffer().snapshot(), cursor()});
   cur_buffer().redo_stack.clear();

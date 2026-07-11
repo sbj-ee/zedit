@@ -143,6 +143,22 @@ class Editor {
   // false (no-op) if there is no pattern set or it doesn't occur anywhere.
   bool jump_to_search(bool forward);
 
+  // Find & replace (plain substring, no regex -- same scope as search).
+  // If the cursor is currently sitting exactly at an occurrence of
+  // `find`, replaces it and returns true; otherwise a no-op returning
+  // false (callers pair this with jump_to_search to walk through
+  // matches one at a time, "Replace" in a gedit-style dialog).
+  bool replace_current_match(std::string_view find, std::string_view replace_with);
+  // Replaces every non-overlapping occurrence of `find` in the whole
+  // buffer as a single undoable action. Returns the number replaced.
+  size_t replace_all(std::string_view find, std::string_view replace_with);
+
+  // Sorts lines [start_line, end_line] (inclusive, clamped to the buffer)
+  // lexicographically, replacing that range in place as a single
+  // undoable action. Used by the Tools > Sort menu, over either the
+  // current Visual selection's line range or the whole buffer.
+  void sort_lines(size_t start_line, size_t end_line, bool reverse);
+
   // Multiple buffers (:e, :bn, :bp, :ls). Opening a path that's already
   // open just switches to it rather than duplicating it; opening a path
   // that doesn't exist on disk yet starts an empty buffer with that name,

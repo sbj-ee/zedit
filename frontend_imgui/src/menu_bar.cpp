@@ -2,9 +2,11 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <array>
 
 #include "file_dialog.hpp"
+#include "find_replace_dialog.hpp"
 #include "zedit/core/file_io.hpp"
 
 namespace zedit::frontend {
@@ -13,8 +15,23 @@ using zedit::core::Editor;
 using zedit::core::FileIoError;
 using zedit::core::Key;
 using zedit::core::KeyEvent;
+using zedit::core::Mode;
 
 namespace {
+
+// Sorts the current Visual/Visual Line selection's lines if one is
+// active, otherwise the whole buffer -- matches gedit's own Tools >
+// Sort, which operates on the selection when there is one.
+void sort_selection_or_all(Editor& ed, bool reverse) {
+  size_t total = ed.buffer().line_count();
+  size_t start = 0;
+  size_t end = total > 0 ? total - 1 : 0;
+  if (ed.mode() == Mode::Visual || ed.mode() == Mode::VisualLine) {
+    start = std::min(ed.visual_anchor().line, ed.cursor().line);
+    end = std::max(ed.visual_anchor().line, ed.cursor().line);
+  }
+  ed.sort_lines(start, end, reverse);
+}
 
 // Popup path-entry buffers are static (one editor, one menu bar, one
 // popup open at a time) rather than App members -- keeps the popup
@@ -71,6 +88,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
   bool open_requested = false;
   bool save_as_requested = false;
   bool about_requested = false;
+  bool find_replace_requested = false;
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("File")) {
@@ -116,6 +134,10 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
       if (ImGui::MenuItem("Select All", "Ctrl+A")) {
         ed.handle_key(KeyEvent{Key::CtrlA, 0});
       }
+      ImGui::Separator();
+      if (ImGui::MenuItem("Find and Replace...")) {
+        find_replace_requested = true;
+      }
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("View")) {
@@ -130,6 +152,17 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
       }
       if (ImGui::MenuItem("Next Window", "Ctrl+W")) {
         ed.next_window();
+      }
+      ImGui::EndMenu();
+    }
+    if (ImGui::BeginMenu("Tools")) {
+      // Sorts the active Visual/Visual Line selection's lines if there is
+      // one, otherwise the whole buffer -- see sort_selection_or_all().
+      if (ImGui::MenuItem("Sort Lines (A-Z)")) {
+        sort_selection_or_all(ed, /*reverse=*/false);
+      }
+      if (ImGui::MenuItem("Sort Lines (Z-A)")) {
+        sort_selection_or_all(ed, /*reverse=*/true);
       }
       ImGui::EndMenu();
     }
@@ -152,9 +185,13 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
   if (about_requested) {
     ImGui::OpenPopup("About zedit");
   }
+  if (find_replace_requested) {
+    ImGui::OpenPopup("Find and Replace");
+  }
   render_open_file_popup(ed);
   save_as_popup(ed);
   about_popup(icon_texture);
+  render_find_replace_popup(ed);
 }
 
 }  // namespace zedit::frontend
