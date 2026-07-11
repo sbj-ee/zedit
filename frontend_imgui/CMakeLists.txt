@@ -16,6 +16,7 @@ add_executable(zedit
   src/theme.cpp
   src/menu_bar.cpp
   src/file_dialog.cpp
+  src/file_finder.cpp
   src/find_replace_dialog.cpp
   src/recent_files.cpp
   src/update_checker.cpp
