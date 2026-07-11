@@ -198,6 +198,15 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       }
       ImGui::Separator();
       ImGui::MenuItem("Word Wrap", nullptr, &word_wrap);
+      ImGui::Separator();
+      // MenuItem flips *p_selected itself and returns true on click, so
+      // by the time this branch runs, gedit_mode already holds the new
+      // target value -- just apply it.
+      bool gedit_mode = (ed.editing_style() == zedit::core::EditingStyle::Gedit);
+      if (ImGui::MenuItem("Gedit Mode", nullptr, &gedit_mode)) {
+        ed.set_editing_style(gedit_mode ? zedit::core::EditingStyle::Gedit
+                                         : zedit::core::EditingStyle::Vim);
+      }
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Tools")) {

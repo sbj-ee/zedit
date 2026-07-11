@@ -6,6 +6,14 @@ enum class Mode { Normal, Insert, CommandLine, Visual, VisualLine, Search };
 
 enum class OperatorKind { Delete, Yank, Change };
 
+// Vim: the modal editing this project is built around. Gedit: a plain
+// "always behaves like a text box" alternative for anyone who doesn't
+// want modal editing at all -- typing always inserts immediately, no
+// Normal-mode command grammar, selection is keyboard (Shift+Arrow) or
+// mouse (double-click, drag) driven and typing over a selection replaces
+// it. See ModeStateMachine::handle_gedit_key().
+enum class EditingStyle { Vim, Gedit };
+
 enum class Key {
   Char,
   Enter,
@@ -16,6 +24,10 @@ enum class Key {
   Right,
   Up,
   Down,
+  ShiftLeft,
+  ShiftRight,
+  ShiftUp,
+  ShiftDown,
   CtrlR,
   CtrlW,
   CtrlA,

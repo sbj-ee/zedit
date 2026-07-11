@@ -26,10 +26,23 @@ std::vector<zedit::core::KeyEvent> collect_key_events(ImGuiIO& io) {
   add_if_pressed(ImGuiKey_Escape, Key::Escape);
   add_if_pressed(ImGuiKey_Backspace, Key::Backspace);
   add_if_pressed(ImGuiKey_Tab, Key::Tab);
-  add_if_pressed(ImGuiKey_LeftArrow, Key::Left);
-  add_if_pressed(ImGuiKey_RightArrow, Key::Right);
-  add_if_pressed(ImGuiKey_UpArrow, Key::Up);
-  add_if_pressed(ImGuiKey_DownArrow, Key::Down);
+
+  // Shift+Arrow reports as its own Key (gedit style's keyboard-driven
+  // selection; vim style ignores these -- there's no binding for them
+  // in ModeStateMachine's Normal/Insert/Visual handlers) rather than
+  // plain Left/Right/Up/Down, so the two are never ambiguous downstream.
+  bool shift_held = ImGui::IsKeyDown(ImGuiMod_Shift);
+  if (shift_held) {
+    add_if_pressed(ImGuiKey_LeftArrow, Key::ShiftLeft);
+    add_if_pressed(ImGuiKey_RightArrow, Key::ShiftRight);
+    add_if_pressed(ImGuiKey_UpArrow, Key::ShiftUp);
+    add_if_pressed(ImGuiKey_DownArrow, Key::ShiftDown);
+  } else {
+    add_if_pressed(ImGuiKey_LeftArrow, Key::Left);
+    add_if_pressed(ImGuiKey_RightArrow, Key::Right);
+    add_if_pressed(ImGuiKey_UpArrow, Key::Up);
+    add_if_pressed(ImGuiKey_DownArrow, Key::Down);
+  }
 
   // Ctrl+<letter> combos don't produce InputQueueCharacters entries (GLFW
   // suppresses char callbacks while a modifier is held), so they're only

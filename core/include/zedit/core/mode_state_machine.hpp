@@ -28,6 +28,15 @@ class ModeStateMachine {
   const std::string& last_error() const { return last_error_; }
   Cursor visual_anchor() const { return visual_anchor_; }
 
+  // Switching to Gedit collapses any in-progress vim command state
+  // (pending operator, command line, ...) and drops into Insert mode,
+  // same as Escape would -- there's nothing sensible to resume once
+  // vim's command grammar stops being reachable. Switching back to Vim
+  // leaves whatever mode gedit style was in (Insert, or Visual/
+  // VisualLine mid-selection) as the starting point.
+  EditingStyle editing_style() const { return style_; }
+  void set_editing_style(EditingStyle style);
+
   // The line-input buffer shared by CommandLine and Search modes, and the
   // prefix character (':', '/', or '?') that says which one is active --
   // used by the status line to render the prompt.
@@ -101,12 +110,19 @@ class ModeStateMachine {
   std::string insert_session_text_;
   std::unordered_map<char, std::string> normal_remap_;
   bool replaying_remap_ = false;
+  EditingStyle style_ = EditingStyle::Vim;
 
   KeyResult handle_normal(KeyEvent ev, Editor& ed);
   KeyResult handle_insert(KeyEvent ev, Editor& ed);
   KeyResult handle_command_line(KeyEvent ev, Editor& ed);
   KeyResult handle_visual(KeyEvent ev, Editor& ed);
   KeyResult handle_search(KeyEvent ev, Editor& ed);
+  // Entered instead of the mode-based dispatch above whenever
+  // style_ == Gedit: no Normal-mode command grammar at all, just
+  // "typing inserts, Shift+Arrow / double-click / Ctrl-A select,
+  // typing over a selection replaces it" -- see the .cpp for the full
+  // rationale.
+  KeyResult handle_gedit_key(KeyEvent ev, Editor& ed);
 
   // Shared by Normal and Visual: h/l/j/k/w/b/e/0/$ move the cursor by
   // `repeat` steps (Normal) or extend the selection (Visual, repeat==1).

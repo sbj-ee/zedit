@@ -64,6 +64,12 @@ class Editor {
   const std::string& last_error() const { return mode_sm_.last_error(); }
   Cursor visual_anchor() const { return mode_sm_.visual_anchor(); }
 
+  // Vim (default) vs Gedit editing style -- see EditingStyle's own doc
+  // comment and ModeStateMachine::handle_gedit_key() for what Gedit
+  // style actually changes.
+  EditingStyle editing_style() const { return mode_sm_.editing_style(); }
+  void set_editing_style(EditingStyle style) { mode_sm_.set_editing_style(style); }
+
   const std::string& filename() const { return cur_buffer().filename; }
   // Also re-picks the syntax highlighter to match the new filename's
   // extension (e.g. starting an empty buffer destined for "foo.cpp").

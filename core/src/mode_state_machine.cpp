@@ -45,6 +45,9 @@ KeyResult ModeStateMachine::handle_key(KeyEvent ev, Editor& ed) {
     }
     return KeyResult{};
   }
+  if (style_ == EditingStyle::Gedit) {
+    return handle_gedit_key(ev, ed);
+  }
   switch (mode_) {
     case Mode::Normal:
       return handle_normal(ev, ed);
@@ -256,6 +259,122 @@ void ModeStateMachine::select_word_at_cursor(Editor& ed) {
 void ModeStateMachine::enter_visual(Mode which, Editor& ed) {
   visual_anchor_ = ed.cursor();
   mode_ = which;
+}
+
+void ModeStateMachine::set_editing_style(EditingStyle style) {
+  style_ = style;
+  reset_pending();
+  command_line_buffer_.clear();
+  // Whatever vim mode was active (Normal, CommandLine, Search, or a
+  // Visual selection) stops being reachable the moment gedit style takes
+  // over, so land in Insert -- the one mode gedit style actually knows
+  // how to be in -- same as Escape would from any of those. A Visual
+  // selection specifically is left alone rather than collapsed: it's
+  // still a perfectly good selection under gedit-style rules (Shift+
+  // Arrow/double-click produce the exact same Visual-mode state), so
+  // there's no reason to discard it just because the style changed.
+  if (mode_ != Mode::Visual && mode_ != Mode::VisualLine) {
+    mode_ = Mode::Insert;
+  }
+}
+
+// No Normal-mode command grammar at all: every key either manages a
+// Shift+Arrow/double-click/Ctrl-A selection (Visual/VisualLine, exactly
+// the same representation vim style already uses -- draw_selection() and
+// friends need no gedit-specific rendering path) or is handled by
+// reusing handle_insert() outright, since "always behave like a plain
+// text box" is precisely what Insert mode already does. The only new
+// logic here is: Shift+Arrow starts/extends a selection, typing over an
+// active selection replaces it (vim's own Visual "c" already means
+// exactly that -- delete then enter Insert), and Ctrl-C/Ctrl-X need
+// their own handling since handle_insert doesn't implement them (vim
+// style never needed to; Normal/Visual mode's own handlers already
+// cover copy/cut there).
+KeyResult ModeStateMachine::handle_gedit_key(KeyEvent ev, Editor& ed) {
+  bool has_selection = (mode_ == Mode::Visual || mode_ == Mode::VisualLine);
+
+  if (ev.key == Key::ShiftLeft || ev.key == Key::ShiftRight || ev.key == Key::ShiftUp ||
+      ev.key == Key::ShiftDown) {
+    if (!has_selection) {
+      visual_anchor_ = ed.cursor();
+      mode_ = Mode::Visual;
+    }
+    switch (ev.key) {
+      case Key::ShiftLeft:
+        ed.move_left();
+        break;
+      case Key::ShiftRight:
+        ed.move_right();
+        break;
+      case Key::ShiftUp:
+        ed.move_up();
+        break;
+      case Key::ShiftDown:
+        ed.move_down();
+        break;
+      default:
+        break;
+    }
+    return KeyResult{};
+  }
+
+  if (ev.key == Key::Escape) {
+    mode_ = Mode::Insert;  // collapses any active selection; a no-op otherwise
+    return KeyResult{};
+  }
+
+  if (ev.key == Key::CtrlC) {
+    if (has_selection) {
+      finish_operator_on_visual_selection(OperatorKind::Yank, ed);
+      mode_ = Mode::Insert;  // Yank leaves mode_ == Normal; gedit style has no such mode
+    } else {
+      // No selection to copy -- yank the current line, same fallback
+      // vim style's own standalone Ctrl-C already uses.
+      execute_operator_linewise(OperatorKind::Yank, ed.cursor().line, 1, ed,
+                                 pending_.register_name);
+    }
+    return KeyResult{};
+  }
+  if (ev.key == Key::CtrlX) {
+    if (has_selection) {
+      finish_operator_on_visual_selection(OperatorKind::Delete, ed);
+    } else {
+      execute_operator_linewise(OperatorKind::Delete, ed.cursor().line, 1, ed,
+                                 pending_.register_name);
+    }
+    mode_ = Mode::Insert;
+    return KeyResult{};
+  }
+
+  if (has_selection) {
+    bool replaces_selection =
+        (ev.key == Key::Char || ev.key == Key::Enter || ev.key == Key::Tab ||
+         ev.key == Key::CtrlP);
+    if (ev.key == Key::Backspace || replaces_selection) {
+      // Deliberately OperatorKind::Delete, not vim's own Visual "c" --
+      // Change's *linewise* path leaves a placeholder blank line behind
+      // (correct for vim's own "cc"/VC, which must still land you on
+      // some line to keep editing), which would turn a gedit-style
+      // "select all, type X" into "\nX" instead of "X". Delete has no
+      // such placeholder for either linewise or charwise selections, so
+      // it's the clean "remove exactly this, nothing more" this needs.
+      finish_operator_on_visual_selection(OperatorKind::Delete, ed);
+      mode_ = Mode::Insert;
+      if (ev.key == Key::Backspace) {
+        return KeyResult{};  // Backspace alone just removes the selection, nothing more
+      }
+      // replaces_selection: fall through to handle_insert below to
+      // perform the actual insertion at the now-collapsed cursor.
+    } else {
+      // Arrows and anything else not otherwise handled: collapse the
+      // selection without touching its text, then fall through so (for
+      // arrows) the actual movement still happens -- matching how any
+      // GUI editor's arrow keys both deselect and move.
+      mode_ = Mode::Insert;
+    }
+  }
+
+  return handle_insert(ev, ed);
 }
 
 void ModeStateMachine::finish_operator_on_visual_selection(OperatorKind op, Editor& ed) {
