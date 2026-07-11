@@ -50,6 +50,9 @@ std::vector<zedit::core::KeyEvent> collect_key_events(ImGuiIO& io) {
   if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_C, true)) {
     events.push_back(KeyEvent{Key::CtrlC, 0});
   }
+  if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_X, true)) {
+    events.push_back(KeyEvent{Key::CtrlX, 0});
+  }
   if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_S, true)) {
     events.push_back(KeyEvent{Key::CtrlS, 0});
   }

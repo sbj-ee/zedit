@@ -146,9 +146,13 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
         ed.redo();
       }
       ImGui::Separator();
-      // Reuses the exact same key-event path the real Ctrl+C/Ctrl+P/Ctrl+A
-      // shortcuts go through, rather than duplicating their logic (which
-      // lives in ModeStateMachine, not on Editor directly) here.
+      // Reuses the exact same key-event path the real
+      // Ctrl+C/Ctrl+X/Ctrl+P/Ctrl+A shortcuts go through, rather than
+      // duplicating their logic (which lives in ModeStateMachine, not
+      // on Editor directly) here.
+      if (ImGui::MenuItem("Cut", "Ctrl+X")) {
+        ed.handle_key(KeyEvent{Key::CtrlX, 0});
+      }
       if (ImGui::MenuItem("Copy", "Ctrl+C")) {
         ed.handle_key(KeyEvent{Key::CtrlC, 0});
       }
