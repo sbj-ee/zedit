@@ -1,11 +1,11 @@
 # zedit
 
 A modal, vim-like text editor written in C++20, built on Dear ImGui + GLFW + OpenGL.
-Targets Linux and macOS.
+Targets Linux and macOS. The binary is `ze` — short to type, like `vi`.
 
 ## Status
 
-Early development. See `docs/roadmap.md` for the milestone plan.
+Early development (M2 in progress: operators, undo/redo, registers, Visual mode).
 
 ## Building
 
@@ -14,7 +14,7 @@ Requires CMake 3.21+, a C++20 compiler, and Ninja (recommended).
 ```sh
 cmake -B build -G Ninja
 cmake --build build
-./build/frontend_imgui/zedit [file]
+./build/frontend_imgui/ze [file]
 ```
 
 ## Testing

@@ -3,6 +3,10 @@ add_executable(zedit_tests
   core/test_piece_table.cpp
   core/test_command_line.cpp
   core/test_editor.cpp
+  core/test_motion.cpp
+  core/test_operator.cpp
+  core/test_normal_mode_operators.cpp
+  core/test_visual_mode.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE

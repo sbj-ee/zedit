@@ -122,6 +122,19 @@ TEST_CASE("trailing newline produces a trailing empty line", "[piece_table]") {
   REQUIRE(pt.line_text(1).empty());
 }
 
+TEST_CASE("snapshot and restore revert content", "[piece_table]") {
+  PieceTable pt(std::string("hello world"));
+  auto snap = pt.snapshot();
+
+  pt.insert(5, ",");
+  pt.erase(0, 5);
+  REQUIRE(pt.to_string() == ", world");
+
+  pt.restore(snap);
+  REQUIRE(pt.to_string() == "hello world");
+  REQUIRE(pt.line_count() == 1);
+}
+
 TEST_CASE("randomized fuzz vs std::string reference model", "[piece_table]") {
   std::mt19937 rng(12345);
   std::uniform_int_distribution<int> op_dist(0, 1);

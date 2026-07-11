@@ -2,7 +2,9 @@
 
 namespace zedit::core {
 
-enum class Mode { Normal, Insert, CommandLine };
+enum class Mode { Normal, Insert, CommandLine, Visual, VisualLine };
+
+enum class OperatorKind { Delete, Yank, Change };
 
 enum class Key {
   Char,
@@ -14,6 +16,7 @@ enum class Key {
   Right,
   Up,
   Down,
+  CtrlR,
   Unknown,
 };
 

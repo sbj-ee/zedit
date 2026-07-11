@@ -14,7 +14,20 @@ void render_status_line(const Editor& ed) {
     return;
   }
 
-  const char* mode_name = (ed.mode() == Mode::Insert) ? "INSERT" : "NORMAL";
+  const char* mode_name = "NORMAL";
+  switch (ed.mode()) {
+    case Mode::Insert:
+      mode_name = "INSERT";
+      break;
+    case Mode::Visual:
+      mode_name = "VISUAL";
+      break;
+    case Mode::VisualLine:
+      mode_name = "VISUAL LINE";
+      break;
+    default:
+      break;
+  }
   Cursor c = ed.cursor();
   ImGui::Text("-- %s --  %s%s  %zu:%zu", mode_name,
               ed.filename().empty() ? "[No Name]" : ed.filename().c_str(),

@@ -12,3 +12,5 @@ target_link_libraries(zedit PRIVATE
   imgui
   zedit_warnings
 )
+
+set_target_properties(zedit PROPERTIES OUTPUT_NAME ze)

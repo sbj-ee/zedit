@@ -47,6 +47,17 @@ class PieceTable {
   size_t line_col_to_offset(size_t line, size_t col) const;
   std::string line_text(size_t line) const;
 
+  // A snapshot is just the piece list, not the underlying content: original_
+  // is immutable after construction and added_ only ever grows, so restoring
+  // pieces_ instantly reverts document content without touching either
+  // buffer. This makes undo/redo cheap regardless of document size.
+  struct Snapshot {
+    std::vector<Piece> pieces;
+    size_t total_length = 0;
+  };
+  Snapshot snapshot() const;
+  void restore(Snapshot snap);
+
  private:
   std::string original_;
   std::string added_;

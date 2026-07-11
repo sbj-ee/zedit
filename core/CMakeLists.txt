@@ -3,6 +3,8 @@ add_library(zedit_core STATIC
   src/piece_table.cpp
   src/file_io.cpp
   src/command_line.cpp
+  src/motion.cpp
+  src/operator.cpp
   src/mode_state_machine.cpp
   src/editor.cpp
 )

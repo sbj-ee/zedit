@@ -1,11 +1,14 @@
 #pragma once
 
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "zedit/core/cursor.hpp"
 #include "zedit/core/mode.hpp"
 #include "zedit/core/mode_state_machine.hpp"
 #include "zedit/core/piece_table.hpp"
+#include "zedit/core/registers.hpp"
 
 namespace zedit::core {
 
@@ -24,12 +27,14 @@ class Editor {
   Cursor cursor() const { return cursor_; }
   void set_cursor(Cursor c) { cursor_ = c; }
   size_t cursor_offset() const;
+  Cursor offset_to_cursor(size_t offset) const;
 
   Mode mode() const { return mode_sm_.mode(); }
   const std::string& command_line_buffer() const {
     return mode_sm_.command_line_buffer();
   }
   const std::string& last_error() const { return mode_sm_.last_error(); }
+  Cursor visual_anchor() const { return mode_sm_.visual_anchor(); }
 
   const std::string& filename() const { return filename_; }
   void set_filename(std::string path) { filename_ = std::move(path); }
@@ -56,6 +61,26 @@ class Editor {
   void open_line_below();
   void open_line_above();
 
+  // General-purpose range edits used by operator (d/y/c/x/p) execution.
+  void erase_range(size_t offset, size_t length);
+  void insert_text(size_t offset, std::string_view text);
+  size_t current_line_length() const;
+
+  // The unnamed register, populated by delete/change/yank and consumed by
+  // paste. Named registers are a later milestone.
+  const RegisterContent& unnamed_register() const { return unnamed_register_; }
+  void set_unnamed_register(std::string text, bool linewise) {
+    unnamed_register_ = RegisterContent{std::move(text), linewise};
+  }
+
+  // Each undo-able user action snapshots buffer + cursor state once via
+  // begin_undo_group() before mutating; undo()/redo() restore snapshots.
+  // Because PieceTable snapshots are just the piece list (see
+  // PieceTable::Snapshot), this is cheap regardless of document size.
+  void begin_undo_group();
+  void undo();
+  void redo();
+
  private:
   PieceTable buffer_;
   Cursor cursor_;
@@ -63,8 +88,15 @@ class Editor {
   std::string filename_;
   bool dirty_ = false;
   bool should_quit_ = false;
+  RegisterContent unnamed_register_;
 
-  size_t current_line_length() const;
+  struct UndoEntry {
+    PieceTable::Snapshot buffer_snapshot;
+    Cursor cursor;
+  };
+  std::vector<UndoEntry> undo_stack_;
+  std::vector<UndoEntry> redo_stack_;
+
   void mark_dirty() { dirty_ = true; }
 };
 

@@ -15,6 +15,16 @@ PieceTable::PieceTable(std::string original_content)
   }
 }
 
+PieceTable::Snapshot PieceTable::snapshot() const {
+  return Snapshot{pieces_, total_length_};
+}
+
+void PieceTable::restore(Snapshot snap) {
+  pieces_ = std::move(snap.pieces);
+  total_length_ = snap.total_length;
+  line_index_dirty_ = true;
+}
+
 std::string_view PieceTable::piece_view(const Piece& p) const {
   const std::string& buf =
       (p.source == BufferSource::Original) ? original_ : added_;
