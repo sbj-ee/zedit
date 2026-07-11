@@ -65,6 +65,17 @@ class ModeStateMachine {
   // through handle_key.
   void select_word_at_cursor(Editor& ed);
 
+  // Enters Visual mode anchored at the current cursor position, same as
+  // vim's own 'v' -- used by the frontend's mouse-drag selection (mouse
+  // down positions the cursor and calls this once, then each subsequent
+  // frame of the drag just moves the cursor to extend the selection).
+  // Reuses the exact same Visual-mode representation as 'v'/Shift+Arrow/
+  // double-click/Ctrl-A, so rendering, Ctrl-C/Ctrl-X, and gedit style's
+  // type-to-replace all work identically regardless of how the selection
+  // started. Public for the same reason select_word_at_cursor is: no
+  // KeyEvent for "the mouse button just went down here."
+  void start_visual_selection(Editor& ed);
+
  private:
   struct PendingCommand {
     int count = 0;

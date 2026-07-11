@@ -19,6 +19,7 @@ namespace zedit::frontend {
 using zedit::core::Cursor;
 using zedit::core::DiffLineStatus;
 using zedit::core::Editor;
+using zedit::core::EditingStyle;
 using zedit::core::HighlightSpan;
 using zedit::core::is_bracket_char;
 using zedit::core::Key;
@@ -311,7 +312,13 @@ bool handle_mouse_click(Editor& ed, ImVec2 origin, const std::vector<VisualRow>&
   // conflict between positioning the cursor and then also selecting the
   // word there.
   bool double_clicked = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-  if (!left_clicked && !right_clicked) {
+  // True every frame the left button is held and has moved past a small
+  // threshold since it went down -- distinct from left_clicked, which
+  // only fires once on the down-edge. Checked every frame (not just
+  // once) so the selection keeps extending as the mouse keeps moving.
+  bool dragging =
+      ImGui::IsMouseDown(ImGuiMouseButton_Left) && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 2.0f);
+  if (!left_clicked && !right_clicked && !dragging) {
     return false;
   }
   if (rows.empty() || char_width <= 0.0f || line_height <= 0.0f) {
@@ -331,8 +338,33 @@ bool handle_mouse_click(Editor& ed, ImVec2 origin, const std::vector<VisualRow>&
   size_t max_col_in_row = (ed.mode() == Mode::Insert) ? row_len : (row_len > 0 ? row_len - 1 : 0);
   size_t rel_col = static_cast<size_t>(std::max(rel_x / char_width + 0.5f, 0.0f));
   rel_col = std::min(rel_col, max_col_in_row);
+  Cursor target{row.buffer_line, row.start_col + rel_col};
 
-  ed.set_cursor(Cursor{row.buffer_line, row.start_col + rel_col});
+  if (dragging) {
+    bool already_selecting = (ed.mode() == Mode::Visual || ed.mode() == Mode::VisualLine);
+    bool may_start_selecting;
+    if (already_selecting) {
+      may_start_selecting = true;
+    } else if (ed.editing_style() == EditingStyle::Gedit) {
+      may_start_selecting = true;  // gedit style: Insert is the only non-selecting mode
+    } else {
+      // Vim style only starts a drag-selection from Normal -- starting
+      // mid-Insert would abandon that Insert session's dot-repeat
+      // tracking (insert_session_text_, pending_change_) without
+      // properly closing it the way Escape does.
+      may_start_selecting = (ed.mode() == Mode::Normal);
+    }
+    if (!may_start_selecting) {
+      return false;  // e.g. vim style mid-Insert -- ignore the drag entirely
+    }
+    if (!already_selecting) {
+      ed.start_visual_selection();
+    }
+    ed.set_cursor(target);
+    return true;
+  }
+
+  ed.set_cursor(target);
 
   if (right_clicked) {
     // Paste at the click position -- reuses whatever Ctrl-P already does
