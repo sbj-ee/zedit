@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 
 #include "zedit/core/piece_table.hpp"
 
@@ -27,5 +28,16 @@ size_t motion_line_end(const PieceTable& buf, size_t offset);          // $ (inc
 // punctuation, or whitespace) containing offset. Used by text objects like
 // "iw" (e.g. ciw, diw, yiw).
 Range text_object_inner_word(const PieceTable& buf, size_t offset);
+
+// True for any of ()[]{} -- exposed so the frontend can decide whether to
+// draw the matching-bracket highlight without duplicating this list.
+bool is_bracket_char(char c);
+
+// "%" -- if `offset` isn't itself on a bracket, first searches forward on
+// the current line only for one (matching vim's own "%", which doesn't
+// search across lines to *find* a bracket, only to find its *match* once
+// one is found). Returns nullopt if there's no bracket on the line, or no
+// matching bracket exists (unbalanced).
+std::optional<size_t> motion_matching_bracket(const PieceTable& buf, size_t offset);
 
 }  // namespace zedit::core

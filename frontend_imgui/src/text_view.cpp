@@ -3,12 +3,14 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "theme.hpp"
 #include "zedit/core/diff.hpp"
 #include "zedit/core/highlight.hpp"
+#include "zedit/core/motion.hpp"
 
 namespace zedit::frontend {
 
@@ -16,8 +18,10 @@ using zedit::core::Cursor;
 using zedit::core::DiffLineStatus;
 using zedit::core::Editor;
 using zedit::core::HighlightSpan;
+using zedit::core::is_bracket_char;
 using zedit::core::LspDiagnostic;
 using zedit::core::Mode;
+using zedit::core::motion_matching_bracket;
 using zedit::core::PieceTable;
 
 namespace {
@@ -159,6 +163,21 @@ void draw_selection(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
   }
 }
 
+// An outlined (not filled, to stay legible over the cursor block/selection)
+// box around one character -- used for both halves of a matching bracket
+// pair. A no-op if `pos` has scrolled outside the visible range.
+void draw_bracket_highlight(ImDrawList* draw_list, ImVec2 origin, size_t first_visible_line,
+                             size_t last_visible_line, float char_width, float line_height,
+                             Cursor pos) {
+  if (pos.line < first_visible_line || pos.line >= last_visible_line) {
+    return;
+  }
+  float x = origin.x + static_cast<float>(pos.col) * char_width;
+  float y = origin.y + static_cast<float>(pos.line - first_visible_line) * line_height;
+  draw_list->AddRect(ImVec2(x, y), ImVec2(x + char_width, y + line_height),
+                      IM_COL32(255, 215, 0, 220), 0.0f, 0, 1.5f);
+}
+
 bool handle_mouse_click(Editor& ed, ImVec2 origin, size_t first_visible_line,
                          size_t total_lines, float char_width, float line_height) {
   if (!ImGui::IsWindowHovered() || !ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -297,6 +316,19 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width) {
                      ed.cursor().line);
 
   Cursor cursor = ed.cursor();
+
+  std::string cursor_line_text = buf.line_text(cursor.line);
+  if (cursor.col < cursor_line_text.size() && is_bracket_char(cursor_line_text[cursor.col])) {
+    std::optional<size_t> match = motion_matching_bracket(buf, ed.cursor_offset());
+    if (match) {
+      Cursor match_pos = ed.offset_to_cursor(*match);
+      draw_bracket_highlight(draw_list, text_origin, first_visible_line_, last_line, char_width,
+                              line_height, cursor);
+      draw_bracket_highlight(draw_list, text_origin, first_visible_line_, last_line, char_width,
+                              line_height, match_pos);
+    }
+  }
+
   float cursor_x = text_origin.x + static_cast<float>(cursor.col) * char_width;
   float cursor_y =
       text_origin.y +

@@ -30,7 +30,74 @@ CharClass classify(char c) {
   return CharClass::Punct;
 }
 
+char matching_bracket_char(char c) {
+  switch (c) {
+    case '(':
+      return ')';
+    case ')':
+      return '(';
+    case '{':
+      return '}';
+    case '}':
+      return '{';
+    case '[':
+      return ']';
+    case ']':
+      return '[';
+    default:
+      return '\0';
+  }
+}
+
+bool is_open_bracket(char c) { return c == '(' || c == '{' || c == '['; }
+
 }  // namespace
+
+bool is_bracket_char(char c) { return matching_bracket_char(c) != '\0'; }
+
+std::optional<size_t> motion_matching_bracket(const PieceTable& buf, size_t offset) {
+  size_t n = buf.size();
+  if (offset >= n) {
+    return std::nullopt;
+  }
+
+  size_t line_end = motion_line_end(buf, offset);
+  size_t start = offset;
+  while (start <= line_end && !is_bracket_char(char_at(buf, start))) {
+    ++start;
+  }
+  if (start > line_end || !is_bracket_char(char_at(buf, start))) {
+    return std::nullopt;
+  }
+
+  char c = char_at(buf, start);
+  char target = matching_bracket_char(c);
+  int depth = 1;
+  if (is_open_bracket(c)) {
+    for (size_t i = start + 1; i < n; ++i) {
+      char cur = char_at(buf, i);
+      if (cur == c) {
+        ++depth;
+      } else if (cur == target) {
+        if (--depth == 0) {
+          return i;
+        }
+      }
+    }
+  } else {
+    for (size_t i = start; i-- > 0;) {
+      char cur = char_at(buf, i);
+      if (cur == c) {
+        ++depth;
+      } else if (cur == target) {
+        if (--depth == 0) {
+          return i;
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
 
 size_t motion_word_forward(const PieceTable& buf, size_t offset) {
   size_t n = buf.size();

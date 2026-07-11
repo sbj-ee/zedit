@@ -107,6 +107,17 @@ bool ModeStateMachine::apply_plain_motion(char ch, Editor& ed, int repeat) {
       ed.set_cursor(ed.offset_to_cursor(offset));
       return true;
     }
+    case '%': {
+      // Unlike the other motions here, a count before "%" means something
+      // different in real vim (jump to that percentage of the file) --
+      // deliberately not implemented, so a count is just ignored rather
+      // than misinterpreted.
+      auto target = motion_matching_bracket(ed.buffer(), ed.cursor_offset());
+      if (target) {
+        ed.set_cursor(ed.offset_to_cursor(*target));
+      }
+      return true;
+    }
     default:
       return false;
   }
@@ -146,6 +157,15 @@ bool ModeStateMachine::resolve_charwise_motion(char ch, OperatorKind op, int cou
     case 'l':
       for (int i = 0; i < count; ++i) b = offset_right_within_line(ed, b);
       return true;
+    case '%': {
+      auto target = motion_matching_bracket(ed.buffer(), b);
+      if (!target) {
+        return false;  // no bracket on this line / unbalanced -- cancel the operator
+      }
+      b = *target;
+      inclusive = true;
+      return true;
+    }
     default:
       return false;
   }
