@@ -31,6 +31,8 @@ void feed(Editor& ed, std::string_view keys) {
   }
 }
 
+void press(Editor& ed, Key key) { ed.handle_key(KeyEvent{key, 0}); }
+
 }  // namespace
 
 TEST_CASE("select_word_at_cursor selects the word under the cursor", "[visual]") {
@@ -45,6 +47,34 @@ TEST_CASE("select_word_at_cursor selects the word under the cursor", "[visual]")
   REQUIRE(ed.cursor().col == 10);
   feed(ed, "d");
   REQUIRE(ed.buffer().to_string() == "hello ");
+}
+
+TEST_CASE("start_visual_selection anchors at the current cursor, extends by moving it",
+          "[visual]") {
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("hello world"));
+  ed.set_cursor(Cursor{0, 0});  // mouse-down position
+  ed.start_visual_selection();
+  REQUIRE(ed.mode() == Mode::Visual);
+  REQUIRE(ed.visual_anchor().line == 0);
+  REQUIRE(ed.visual_anchor().col == 0);
+  // Simulates a mouse drag: each subsequent frame just moves the cursor.
+  ed.set_cursor(Cursor{0, 4});
+  REQUIRE(ed.mode() == Mode::Visual);  // still selecting, not reset
+  feed(ed, "d");
+  REQUIRE(ed.buffer().to_string() == " world");
+}
+
+TEST_CASE("Ctrl-C copies a mouse-drag selection", "[visual]") {
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("hello world"));
+  ed.set_cursor(Cursor{0, 0});
+  ed.start_visual_selection();
+  ed.set_cursor(Cursor{0, 4});  // drag to cover "hello"
+  press(ed, Key::CtrlC);
+  REQUIRE(ed.mode() == Mode::Normal);
+  REQUIRE(ed.unnamed_register().text == "hello");
+  REQUIRE(ed.buffer().to_string() == "hello world");  // copy never mutates the buffer
 }
 
 TEST_CASE("select_word_at_cursor selects a punctuation run, not the surrounding words",

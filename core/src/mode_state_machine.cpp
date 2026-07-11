@@ -256,6 +256,11 @@ void ModeStateMachine::select_word_at_cursor(Editor& ed) {
   ed.set_cursor(ed.offset_to_cursor(r.end - 1));  // Visual's cursor is inclusive of the last char
 }
 
+void ModeStateMachine::start_visual_selection(Editor& ed) {
+  reset_pending();
+  enter_visual(Mode::Visual, ed);
+}
+
 void ModeStateMachine::enter_visual(Mode which, Editor& ed) {
   visual_anchor_ = ed.cursor();
   mode_ = which;
