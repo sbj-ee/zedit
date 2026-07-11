@@ -38,6 +38,7 @@ add_executable(zedit_tests
   core/test_update_check.cpp
   core/test_fuzzy_match.cpp
   core/test_git_diff.cpp
+  core/test_gedit_style.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
