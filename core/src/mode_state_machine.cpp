@@ -583,8 +583,15 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
       pending_change_.reset();
     }
   } else if (ev.key == Key::Enter) {
+    // Auto-indent: the new line inherits the leading whitespace of the
+    // line the cursor was on, computed *before* the newline splits it.
+    std::string indent = ed.leading_whitespace_of_line(ed.cursor().line);
     ed.insert_char('\n');
     insert_session_text_.push_back('\n');
+    for (char c : indent) {
+      ed.insert_char(c);
+      insert_session_text_.push_back(c);
+    }
   } else if (ev.key == Key::Backspace) {
     ed.backspace();
     if (!insert_session_text_.empty()) {

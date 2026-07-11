@@ -89,6 +89,10 @@ class Editor {
   void backspace();
   void open_line_below();
   void open_line_above();
+  // The leading spaces/tabs of `line`, used for auto-indent -- both
+  // open_line_below/above and Insert mode's Enter key copy the current
+  // line's indentation onto the new line.
+  std::string leading_whitespace_of_line(size_t line) const;
 
   // General-purpose range edits used by operator (d/y/c/x/p) execution.
   void erase_range(size_t offset, size_t length);

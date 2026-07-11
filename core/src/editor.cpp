@@ -9,6 +9,18 @@
 
 namespace zedit::core {
 
+namespace {
+
+std::string leading_whitespace(std::string_view line) {
+  size_t i = 0;
+  while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) {
+    ++i;
+  }
+  return std::string(line.substr(0, i));
+}
+
+}  // namespace
+
 Editor Editor::open_file(const std::string& path) {
   Editor ed;
   ed.cur_buffer().content = PieceTable(read_file(path));
@@ -134,18 +146,24 @@ void Editor::backspace() {
 }
 
 void Editor::open_line_below() {
+  std::string indent = leading_whitespace(buffer().line_text(cur_window().cursor.line));
   size_t offset = buffer().line_start_offset(cur_window().cursor.line) + current_line_length();
-  buffer().insert(offset, "\n");
+  buffer().insert(offset, "\n" + indent);
   ++cur_window().cursor.line;
-  cur_window().cursor.col = 0;
+  cur_window().cursor.col = indent.size();
   mark_dirty();
 }
 
 void Editor::open_line_above() {
+  std::string indent = leading_whitespace(buffer().line_text(cur_window().cursor.line));
   size_t offset = buffer().line_start_offset(cur_window().cursor.line);
-  buffer().insert(offset, "\n");
-  cur_window().cursor.col = 0;
+  buffer().insert(offset, indent + "\n");
+  cur_window().cursor.col = indent.size();
   mark_dirty();
+}
+
+std::string Editor::leading_whitespace_of_line(size_t line) const {
+  return leading_whitespace(buffer().line_text(line));
 }
 
 void Editor::save() {

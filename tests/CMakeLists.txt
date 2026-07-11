@@ -30,6 +30,7 @@ add_executable(zedit_tests
   core/test_ctrl_shortcuts.cpp
   core/test_line_navigation.cpp
   core/test_file_io.cpp
+  core/test_auto_indent.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
