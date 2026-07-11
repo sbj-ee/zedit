@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <string>
 #include <vector>
 
 #include "text_view.hpp"
@@ -32,6 +33,12 @@ class App {
   std::vector<TextView> text_views_;
   ImFont* font_;
   ImTextureID icon_texture_;
+  // Tracks the last filename recorded into the recent-files list, so a
+  // change is detected (and recorded) uniformly regardless of how it
+  // happened -- :e, the Open dialog, Save As, or the initial CLI arg --
+  // rather than needing a call to add_recent_file() at every one of
+  // those sites individually.
+  std::string last_recorded_filename_;
 };
 
 }  // namespace zedit::frontend

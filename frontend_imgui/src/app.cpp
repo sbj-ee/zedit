@@ -6,6 +6,7 @@
 
 #include "input_map.hpp"
 #include "menu_bar.hpp"
+#include "recent_files.hpp"
 #include "status_line.hpp"
 
 namespace zedit::frontend {
@@ -15,6 +16,14 @@ App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
 
 void App::render_frame(ImGuiIO& io) {
   editor_.poll_lsp();
+
+  // Recorded here rather than at each individual "a file got opened" call
+  // site (:e, the Open dialog, Save As, the initial CLI arg) -- catching
+  // every filename change in one place, regardless of how it happened.
+  if (!editor_.filename().empty() && editor_.filename() != last_recorded_filename_) {
+    add_recent_file(editor_.filename());
+    last_recorded_filename_ = editor_.filename();
+  }
 
   // While a popup text field (e.g. the menu bar's "Open..."/"Save As..."
   // path box) wants keyboard input, none of it should also reach the
