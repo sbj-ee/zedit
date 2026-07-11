@@ -75,7 +75,7 @@ void about_popup(ImTextureID icon_texture) {
   ImGui::Text("gedit-style chrome, neovim-style keyboard-driven editing");
   ImGui::EndGroup();
   ImGui::Separator();
-  if (ImGui::Button("Close")) {
+  if (ImGui::Button("Close") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
     ImGui::CloseCurrentPopup();
   }
   ImGui::EndPopup();

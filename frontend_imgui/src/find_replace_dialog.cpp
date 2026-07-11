@@ -57,7 +57,7 @@ void render_find_replace_popup(Editor& ed) {
     status = "Replaced " + std::to_string(count) + (count == 1 ? " occurrence" : " occurrences");
   }
   ImGui::SameLine();
-  if (ImGui::Button("Close")) {
+  if (ImGui::Button("Close") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
     find_buf[0] = '\0';
     replace_buf[0] = '\0';
     status.clear();

@@ -142,7 +142,7 @@ void render_open_file_popup(Editor& ed) {
                                      ImGuiInputTextFlags_EnterReturnsTrue);
   confirmed = ImGui::Button("Open") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
-  bool cancelled = ImGui::Button("Cancel");
+  bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
 
   if (confirmed && path_buf[0] != '\0') {
     try {
@@ -206,7 +206,7 @@ void render_save_as_popup(Editor& ed) {
                                      ImGuiInputTextFlags_EnterReturnsTrue);
   confirmed = ImGui::Button("Save") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
-  bool cancelled = ImGui::Button("Cancel");
+  bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
 
   if (confirmed && filename_buf[0] != '\0') {
     std::string full = (current_dir / filename_buf.data()).string();
