@@ -2,6 +2,6 @@
 
 namespace zedit::core {
 
-const char* version_string() { return "1.1.1"; }
+const char* version_string() { return "1.1.2"; }
 
 }  // namespace zedit::core
