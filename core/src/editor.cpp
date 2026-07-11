@@ -32,6 +32,12 @@ void Editor::set_filename(std::string path) {
   cur_buffer().filename = std::move(path);
   set_highlighter(make_highlighter_for_filename(cur_buffer().filename));
   maybe_start_lsp_for_current_buffer();
+  // The git gutter cache is keyed on whatever filename it was fetched
+  // for; a rename (e.g. Save As) invalidates it so the next
+  // git_diff_status() call re-probes under the new name instead of
+  // reusing a stale answer computed for the old one.
+  cur_buffer().git_head_fetched = false;
+  cur_buffer().git_head_content.reset();
 }
 
 void Editor::maybe_start_lsp_for_current_buffer() {
@@ -457,6 +463,22 @@ std::vector<DiffLineStatus> Editor::diff_status_for_window(size_t window_index) 
   DiffResult result = diff_lines(buffer_lines(buffers_[diff_pair_->buffer_a].content),
                                   buffer_lines(buffers_[diff_pair_->buffer_b].content));
   return (buf_index == diff_pair_->buffer_a) ? result.left : result.right;
+}
+
+std::vector<DiffLineStatus> Editor::git_diff_status() {
+  Buffer& buf = cur_buffer();
+  if (!buf.git_head_fetched) {
+    buf.git_head_fetched = true;
+    if (!buf.filename.empty()) {
+      buf.git_head_content = git_head_content(buf.filename);
+    }
+  }
+  if (!buf.git_head_content) {
+    return {};
+  }
+  DiffResult result =
+      diff_lines(buffer_lines(PieceTable(*buf.git_head_content)), buffer_lines(buf.content));
+  return result.right;
 }
 
 }  // namespace zedit::core
