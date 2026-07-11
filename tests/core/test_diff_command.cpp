@@ -105,3 +105,35 @@ TEST_CASE("diff updates live as the buffer is edited", "[diff][integration]") {
   feed(ed, "x");  // "hello" -> "ello" in window 0's buffer
   REQUIRE(ed.diff_status_for_window(0)[0] == DiffLineStatus::Removed);
 }
+
+TEST_CASE("diff_with called again reuses the existing pane instead of stacking a third window",
+          "[diff][windows]") {
+  std::string path_b = "/tmp/zedit_test_diff_reuse_b.txt";
+  std::string path_c = "/tmp/zedit_test_diff_reuse_c.txt";
+  zedit::core::write_file(path_b, "a\nx\nc");
+  zedit::core::write_file(path_c, "a\ny\nc");
+
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("a\nb\nc"));
+  ed.diff_with(path_b);
+  REQUIRE(ed.window_count() == 2);
+
+  ed.set_current_window(0);  // focus back on the original buffer
+  ed.diff_with(path_c);
+
+  REQUIRE(ed.window_count() == 2);  // still two panes, not three
+  REQUIRE(ed.buffer_filename(ed.buffer_count() - 1) == path_c);
+
+  auto right_status = ed.diff_status_for_window(1);
+  REQUIRE(right_status == std::vector<DiffLineStatus>{DiffLineStatus::Unchanged,
+                                                        DiffLineStatus::Added,
+                                                        DiffLineStatus::Unchanged});
+
+  // The original pane still colors correctly against the new pair --
+  // this is exactly what broke before the fix, since diff_pair_ only
+  // ever tracked the latest two buffers.
+  auto left_status = ed.diff_status_for_window(0);
+  REQUIRE(left_status == std::vector<DiffLineStatus>{DiffLineStatus::Unchanged,
+                                                       DiffLineStatus::Removed,
+                                                       DiffLineStatus::Unchanged});
+}
