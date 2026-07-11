@@ -4,8 +4,7 @@
 
 #include <array>
 
-#include "tab_bar.hpp"
-#include "toolbar.hpp"
+#include "file_dialog.hpp"
 #include "zedit/core/file_io.hpp"
 
 namespace zedit::frontend {
@@ -21,26 +20,6 @@ namespace {
 // popup open at a time) rather than App members -- keeps the popup
 // self-contained here instead of threading text-input state through
 // App's public surface for something only this file touches.
-void open_file_popup(Editor& ed) {
-  static std::array<char, 512> path{};
-  if (!ImGui::BeginPopupModal("Open File", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-    return;
-  }
-  bool confirmed = ImGui::InputText("Path", path.data(), path.size(),
-                                     ImGuiInputTextFlags_EnterReturnsTrue);
-  confirmed = ImGui::Button("Open") || confirmed;
-  ImGui::SameLine();
-  bool cancelled = ImGui::Button("Cancel");
-  if (confirmed && path[0] != '\0') {
-    ed.open_buffer(path.data());
-  }
-  if (confirmed || cancelled) {
-    path[0] = '\0';
-    ImGui::CloseCurrentPopup();
-  }
-  ImGui::EndPopup();
-}
-
 void save_as_popup(Editor& ed) {
   static std::array<char, 512> path{};
   if (!ImGui::BeginPopupModal("Save As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -155,13 +134,6 @@ void render_menu_bar(Editor& ed) {
       ImGui::EndMenu();
     }
 
-    // Toolbar buttons and open-file tabs live on this same bar rather
-    // than stacked rows below it -- one unified top bar, gedit-style.
-    draw_vertical_separator();
-    render_toolbar(ed);
-    draw_vertical_separator();
-    render_tab_bar(ed);
-
     ImGui::EndMainMenuBar();
   }
 
@@ -174,7 +146,7 @@ void render_menu_bar(Editor& ed) {
   if (about_requested) {
     ImGui::OpenPopup("About zedit");
   }
-  open_file_popup(ed);
+  render_open_file_popup(ed);
   save_as_popup(ed);
   about_popup();
 }
