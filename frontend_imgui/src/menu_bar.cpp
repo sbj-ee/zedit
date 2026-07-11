@@ -210,9 +210,9 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
         sort_selection_or_all(ed, /*reverse=*/true);
       }
       ImGui::Separator();
-      // Fuzzy-picks any file in the tree (not just already-open buffers)
-      // and diffs it against the current window -- see
-      // render_compare_with_popup(); Editor::diff_with() opens the file
+      // Browses the directory tree (see render_compare_with_popup()) to
+      // pick any file, not just already-open buffers, and diffs it
+      // against the current window; Editor::diff_with() opens the file
       // first if it isn't already a buffer, so this needs no new core
       // logic either.
       if (ImGui::MenuItem("Compare With...")) {

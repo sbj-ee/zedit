@@ -84,6 +84,20 @@ zedit_add_tree_sitter_grammar(
   INHERIT_QUERY_DIRS ${tree-sitter-c-queries_SOURCE_DIR}/queries
 )
 
+# C's own grammar, compiled directly for .c files -- a second fetch of the
+# same repo/tag as tree-sitter-c-queries above (that one's SOURCE_DIR
+# isn't visible outside zedit_fetch_query_only's own scope, since it's
+# the only one of these two helper functions that propagates it via
+# PARENT_SCOPE), which costs one extra shallow clone of a small repo but
+# keeps this addition from having to touch either working, tested helper.
+zedit_add_tree_sitter_grammar(
+  tree-sitter-c
+  https://github.com/tree-sitter/tree-sitter-c.git
+  v0.23.4
+  tree_sitter_c
+  kCHighlightsQuery
+)
+
 zedit_add_tree_sitter_grammar(
   tree-sitter-python
   https://github.com/tree-sitter/tree-sitter-python.git
@@ -94,11 +108,9 @@ zedit_add_tree_sitter_grammar(
 
 # Markdown ships as two grammars (block structure + a separate "inline"
 # grammar for emphasis/links/inline-code within paragraph text) combined
-# via tree-sitter's language-injection mechanism. We only wire up the
-# block grammar for now -- headings, code fences, lists, block quotes, and
-# thematic breaks highlight correctly; inline emphasis/links do not yet.
-# Full injection support is a reasonable follow-up, not required for a
-# useful first pass.
+# via tree-sitter's language-injection mechanism -- both are wired up
+# (MarkdownHighlighter in core/ runs both and merges their spans; a plain
+# TreeSitterHighlighter can only run one grammar at a time).
 zedit_add_tree_sitter_grammar(
   tree-sitter-markdown
   https://github.com/tree-sitter-grammars/tree-sitter-markdown.git
@@ -106,6 +118,14 @@ zedit_add_tree_sitter_grammar(
   tree_sitter_markdown
   kMarkdownHighlightsQuery
   REPO_SUBDIR tree-sitter-markdown
+)
+zedit_add_tree_sitter_grammar(
+  tree-sitter-markdown-inline
+  https://github.com/tree-sitter-grammars/tree-sitter-markdown.git
+  v0.5.3
+  tree_sitter_markdown_inline
+  kMarkdownInlineHighlightsQuery
+  REPO_SUBDIR tree-sitter-markdown-inline
 )
 
 # ---- nlohmann/json ---------------------------------------------------------
