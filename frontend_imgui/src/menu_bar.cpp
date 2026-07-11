@@ -86,7 +86,7 @@ void about_popup(ImTextureID icon_texture) {
 
 }  // namespace
 
-void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
+void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap) {
   bool open_requested = false;
   bool save_as_requested = false;
   bool about_requested = false;
@@ -174,6 +174,8 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture) {
       if (ImGui::MenuItem("Next Window", "Ctrl+W")) {
         ed.next_window();
       }
+      ImGui::Separator();
+      ImGui::MenuItem("Word Wrap", nullptr, &word_wrap);
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Tools")) {

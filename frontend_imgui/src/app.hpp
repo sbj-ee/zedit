@@ -39,6 +39,8 @@ class App {
   // rather than needing a call to add_recent_file() at every one of
   // those sites individually.
   std::string last_recorded_filename_;
+  // One toggle for every pane, not per-window -- see View > Word Wrap.
+  bool word_wrap_ = false;
 };
 
 }  // namespace zedit::frontend

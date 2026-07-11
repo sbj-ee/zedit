@@ -15,6 +15,7 @@ add_library(zedit_core STATIC
   src/json_rpc.cpp
   src/lsp.cpp
   src/config.cpp
+  src/word_wrap.cpp
 )
 
 target_include_directories(zedit_core PUBLIC

@@ -34,6 +34,7 @@ add_executable(zedit_tests
   core/test_find_replace.cpp
   core/test_sort_lines.cpp
   core/test_bracket_match.cpp
+  core/test_word_wrap.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE

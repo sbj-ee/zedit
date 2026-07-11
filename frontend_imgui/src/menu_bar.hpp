@@ -11,6 +11,7 @@ namespace zedit::frontend {
 // As..." items trigger (a path-entry text box, since there's no native
 // file dialog wired up). Call once per frame. icon_texture is shown in
 // the "About zedit" popup; may be 0 if the logo failed to load.
-void render_menu_bar(zedit::core::Editor& ed, ImTextureID icon_texture);
+// word_wrap is toggled in place by the View > Word Wrap checkbox.
+void render_menu_bar(zedit::core::Editor& ed, ImTextureID icon_texture, bool& word_wrap);
 
 }  // namespace zedit::frontend
