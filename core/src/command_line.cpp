@@ -1,5 +1,8 @@
 #include "zedit/core/command_line.hpp"
 
+#include <algorithm>
+#include <cctype>
+
 namespace zedit::core {
 
 ExCommand parse_ex_command(std::string_view input) {
@@ -73,6 +76,11 @@ ExCommand parse_ex_command(std::string_view input) {
     }
     cmd.argument = std::string(rest);
     return cmd;
+  }
+  bool all_digits = std::all_of(input.begin(), input.end(),
+                                 [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; });
+  if (all_digits) {
+    return ExCommand{ExCommandKind::GotoLine, std::string(input)};
   }
   return ExCommand{ExCommandKind::Unknown};
 }

@@ -410,6 +410,15 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     pending_.awaiting_g_command = false;
     if (ch == 'd') {
       ed.go_to_definition();
+    } else if (ch == 'g') {
+      // "gg" / "[count]gg" -- go to the first line, or line [count].
+      size_t total = ed.buffer().line_count();
+      size_t target = pending_.count > 0
+                           ? std::min(static_cast<size_t>(pending_.count) - 1,
+                                      total > 0 ? total - 1 : 0)
+                           : 0;
+      ed.set_cursor(Cursor{target, 0});
+      ed.clamp_cursor_to_line();
     }
     reset_pending();
     return KeyResult{};
@@ -546,6 +555,17 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     case 'V':
       enter_visual(Mode::VisualLine, ed);
       break;
+    case 'G': {
+      // "G" / "[count]G" -- go to the last line, or line [count].
+      size_t total = ed.buffer().line_count();
+      size_t target = pending_.count > 0
+                          ? std::min(static_cast<size_t>(pending_.count) - 1,
+                                     total > 0 ? total - 1 : 0)
+                          : (total > 0 ? total - 1 : 0);
+      ed.set_cursor(Cursor{target, 0});
+      ed.clamp_cursor_to_line();
+      break;
+    }
     default:
       break;
   }
@@ -758,6 +778,24 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
       if (!result.errors.empty()) {
         last_error_ = result.errors.front();
       }
+      break;
+    }
+    case ExCommandKind::GotoLine: {
+      // ":N" -- vim's line-number-only Ex command. 1-indexed like vim;
+      // out-of-range values (including a digit string too long for
+      // stoul to parse) clamp to the nearest valid line rather than
+      // erroring, matching vim's own forgiving behavior here.
+      size_t total = ed.buffer().line_count();
+      size_t requested = total;
+      try {
+        requested = std::stoul(cmd.argument);
+      } catch (const std::exception&) {
+        requested = total;  // absurdly large -- treat like "go to the end"
+      }
+      size_t target = requested > 0 ? requested - 1 : 0;
+      target = std::min(target, total > 0 ? total - 1 : 0);
+      ed.set_cursor(Cursor{target, 0});
+      ed.clamp_cursor_to_line();
       break;
     }
     case ExCommandKind::Empty:

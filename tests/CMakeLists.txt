@@ -28,6 +28,7 @@ add_executable(zedit_tests
   core/test_config.cpp
   core/test_config_integration.cpp
   core/test_ctrl_shortcuts.cpp
+  core/test_line_navigation.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
