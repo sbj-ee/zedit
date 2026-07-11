@@ -40,6 +40,7 @@ class ModeStateMachine {
     bool awaiting_inner_object = false;
     bool awaiting_register_name = false;
     char register_name = 0;  // 0 = unnamed
+    bool awaiting_g_command = false;  // 'g' prefix, e.g. "gd" (go to definition)
   };
 
   // What '.' replays. Kinds that enter Insert mode (PlainInsert, and any

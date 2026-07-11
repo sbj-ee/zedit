@@ -16,10 +16,59 @@ using zedit::core::Cursor;
 using zedit::core::DiffLineStatus;
 using zedit::core::Editor;
 using zedit::core::HighlightSpan;
+using zedit::core::LspDiagnostic;
 using zedit::core::Mode;
 using zedit::core::PieceTable;
 
 namespace {
+
+// Squiggly underline beneath each diagnostic's range (clipped to this
+// line), colored by severity. Drawn as a small zigzag rather than a
+// straight AddLine so it reads as "diagnostic" at a glance, distinct from
+// the selection/diff backgrounds.
+void draw_squiggle(ImDrawList* draw_list, float x0, float x1, float y, ImU32 color) {
+  constexpr float kAmplitude = 2.0f;
+  constexpr float kPeriod = 4.0f;
+  float x = x0;
+  bool up = true;
+  while (x < x1) {
+    float next_x = std::min(x + kPeriod, x1);
+    draw_list->AddLine(ImVec2(x, y + (up ? 0.0f : kAmplitude)),
+                        ImVec2(next_x, y + (up ? kAmplitude : 0.0f)), color, 1.5f);
+    x = next_x;
+    up = !up;
+  }
+}
+
+void draw_diagnostics(ImDrawList* draw_list, const Editor& ed, ImVec2 origin,
+                       size_t first_visible_line, size_t last_visible_line, float char_width,
+                       float line_height) {
+  std::vector<LspDiagnostic> diags = ed.diagnostics();
+  if (diags.empty()) {
+    return;
+  }
+  const PieceTable& buf = ed.buffer();
+  for (const LspDiagnostic& diag : diags) {
+    size_t lo_line = std::max(diag.start_line, first_visible_line);
+    size_t hi_line = std::min(diag.end_line, last_visible_line > 0 ? last_visible_line - 1 : 0);
+    if (lo_line > hi_line || diag.start_line >= last_visible_line ||
+        diag.end_line < first_visible_line) {
+      continue;
+    }
+    ImU32 color = color_for_severity(diag.severity);
+    for (size_t line = lo_line; line <= hi_line; ++line) {
+      size_t line_len = buf.line_text(line).size();
+      size_t start_col = (line == diag.start_line) ? diag.start_col : 0;
+      size_t end_col = (line == diag.end_line) ? diag.end_col : line_len;
+      end_col = std::max(end_col, start_col + 1);
+      float y = origin.y + static_cast<float>(line - first_visible_line) * line_height +
+                line_height - 3.0f;
+      float x0 = origin.x + static_cast<float>(start_col) * char_width;
+      float x1 = origin.x + static_cast<float>(end_col) * char_width;
+      draw_squiggle(draw_list, x0, x1, y, color);
+    }
+  }
+}
 
 // Full-width per-line background for :diff mode -- added lines get a
 // green tint, removed (relative to the other side) a red one. Drawn
@@ -205,11 +254,14 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width) {
     draw_line_text(draw_list, text, line_start_byte, visible_spans, ImVec2(origin.x, y));
   }
 
+  draw_diagnostics(draw_list, ed, origin, first_visible_line_, last_line, char_width, line_height);
+
   Cursor cursor = ed.cursor();
   float cursor_x = origin.x + static_cast<float>(cursor.col) * char_width;
   float cursor_y =
       origin.y +
       static_cast<float>(cursor.line - first_visible_line_) * line_height;
+  cursor_screen_pos_ = ImVec2(cursor_x, cursor_y);
   bool block_cursor = (ed.mode() != Mode::Insert);
   float cursor_width = block_cursor ? char_width : std::max(2.0f, char_width * 0.15f);
   draw_list->AddRectFilled(

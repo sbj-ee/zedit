@@ -108,6 +108,17 @@ zedit_add_tree_sitter_grammar(
   REPO_SUBDIR tree-sitter-markdown
 )
 
+# ---- nlohmann/json ---------------------------------------------------------
+# Header-only; used for LSP JSON-RPC message encoding/decoding.
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # ---- Catch2 (tests only) --------------------------------------------------
 if(ZEDIT_BUILD_TESTS)
   FetchContent_Declare(

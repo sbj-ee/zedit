@@ -14,7 +14,15 @@ App::App(zedit::core::Editor editor, ImFont* font)
     : editor_(std::move(editor)), font_(font) {}
 
 void App::render_frame(ImGuiIO& io) {
+  editor_.poll_lsp();
+
   for (const zedit::core::KeyEvent& ev : collect_key_events(io)) {
+    // Any keypress dismisses a currently-shown hover popup (it still goes
+    // on to perform its normal action -- this isn't a modal "eat the key
+    // that closes me" popup, just a tooltip that clears on the next input).
+    if (editor_.hover_text().has_value()) {
+      editor_.dismiss_hover();
+    }
     editor_.handle_key(ev);
   }
 
@@ -74,6 +82,22 @@ void App::render_frame(ImGuiIO& io) {
   render_status_line(editor_);
 
   ImGui::End();
+
+  const std::optional<std::string>& hover = editor_.hover_text();
+  if (hover.has_value() && real_current < text_views_.size()) {
+    ImVec2 anchor = text_views_[real_current].cursor_screen_pos();
+    ImGui::SetNextWindowPos(ImVec2(anchor.x, anchor.y + ImGui::GetTextLineHeightWithSpacing()));
+    ImGui::SetNextWindowBgAlpha(0.96f);
+    ImGuiWindowFlags hover_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                    ImGuiWindowFlags_NoMove |
+                                    ImGuiWindowFlags_NoFocusOnAppearing |
+                                    ImGuiWindowFlags_AlwaysAutoResize;
+    ImGui::Begin("zedit_hover_popup", nullptr, hover_flags);
+    ImGui::PushFont(font_);
+    ImGui::TextUnformatted(hover->c_str());
+    ImGui::PopFont();
+    ImGui::End();
+  }
 }
 
 }  // namespace zedit::frontend

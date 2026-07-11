@@ -366,6 +366,15 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     return KeyResult{};
   }
 
+  if (pending_.awaiting_g_command) {
+    pending_.awaiting_g_command = false;
+    if (ch == 'd') {
+      ed.go_to_definition();
+    }
+    reset_pending();
+    return KeyResult{};
+  }
+
   if (pending_.op.has_value()) {
     finish_pending_operator(ch, ed);
     return KeyResult{};
@@ -441,6 +450,12 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     case '"':
       pending_.awaiting_register_name = true;
       return KeyResult{};
+    case 'g':
+      pending_.awaiting_g_command = true;
+      return KeyResult{};
+    case 'K':
+      ed.request_hover();
+      break;
     case 'd':
       pending_.op = OperatorKind::Delete;
       return KeyResult{};

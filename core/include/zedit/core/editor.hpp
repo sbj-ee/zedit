@@ -10,6 +10,8 @@
 #include "zedit/core/cursor.hpp"
 #include "zedit/core/diff.hpp"
 #include "zedit/core/highlight.hpp"
+#include "zedit/core/languages.hpp"
+#include "zedit/core/lsp.hpp"
 #include "zedit/core/mode.hpp"
 #include "zedit/core/mode_state_machine.hpp"
 #include "zedit/core/piece_table.hpp"
@@ -195,6 +197,23 @@ class Editor {
   // `window_index`, or empty if that window isn't part of the active diff.
   std::vector<DiffLineStatus> diff_status_for_window(size_t window_index) const;
 
+  // Language server integration (currently: clangd for C++ files only).
+  // Started lazily the first time a C++ file becomes current; silently
+  // does nothing if clangd isn't installed. Call poll_lsp() once per
+  // frame from the frontend to process incoming messages.
+  bool lsp_running() const { return lsp_->running(); }
+  void poll_lsp() { lsp_->poll(); }
+  std::vector<LspDiagnostic> diagnostics() const { return lsp_->diagnostics_for(filename()); }
+  // 'gd': jumps to the definition of the symbol under the cursor,
+  // switching buffers if it's in a different file. No-op if clangd isn't
+  // running or the request comes back empty.
+  void go_to_definition();
+  // 'K': asynchronously fetches hover text for the symbol under the
+  // cursor; see hover_text() for the result once it arrives.
+  void request_hover();
+  const std::optional<std::string>& hover_text() const { return hover_text_; }
+  void dismiss_hover() { hover_text_.reset(); }
+
  private:
   struct UndoEntry {
     PieceTable::Snapshot buffer_snapshot;
@@ -235,6 +254,12 @@ class Editor {
   std::array<RegisterContent, 26> named_registers_;
   std::string last_search_pattern_;
   bool last_search_forward_ = true;
+  // Boxed for the same reason JsonRpcTransport is boxed inside LspManager:
+  // LspManager's own pending-request callbacks capture `this` (LspManager*),
+  // so its address must never change even when Editor itself is moved (e.g.
+  // Editor::open_file()'s return value being moved into App's member).
+  std::unique_ptr<LspManager> lsp_ = std::make_unique<LspManager>();
+  std::optional<std::string> hover_text_;
 
   Window& cur_window() { return windows_[current_window_]; }
   const Window& cur_window() const { return windows_[current_window_]; }
@@ -242,9 +267,13 @@ class Editor {
   const Buffer& cur_buffer() const { return buffers_[cur_window().buffer_index]; }
   void do_split(SplitLayout requested);
   void switch_window_to_buffer(size_t index);
+  void maybe_start_lsp_for_current_buffer();
   void mark_dirty() {
     cur_buffer().dirty = true;
     cur_buffer().highlighter->set_text(cur_buffer().content.to_string());
+    if (lsp_->running() && is_cpp_filename(cur_buffer().filename)) {
+      lsp_->change_document(cur_buffer().filename, cur_buffer().content.to_string());
+    }
   }
 };
 

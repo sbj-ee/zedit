@@ -19,6 +19,41 @@ Editor Editor::open_file(const std::string& path) {
 void Editor::set_filename(std::string path) {
   cur_buffer().filename = std::move(path);
   set_highlighter(make_highlighter_for_filename(cur_buffer().filename));
+  maybe_start_lsp_for_current_buffer();
+}
+
+void Editor::maybe_start_lsp_for_current_buffer() {
+  if (!is_cpp_filename(cur_buffer().filename)) {
+    return;
+  }
+  if (!lsp_->running()) {
+    if (!lsp_->start("clangd")) {
+      return;  // clangd not installed -- no LSP features, not an error
+    }
+  }
+  lsp_->open_document(cur_buffer().filename, cur_buffer().content.to_string());
+}
+
+void Editor::go_to_definition() {
+  if (!lsp_->running()) {
+    return;
+  }
+  lsp_->request_definition(filename(), cursor().line, cursor().col,
+                            [this](std::optional<LspLocation> loc) {
+                              if (!loc) return;
+                              open_buffer(loc->path);
+                              set_cursor(Cursor{loc->line, loc->col});
+                              clamp_cursor_to_line();
+                            });
+}
+
+void Editor::request_hover() {
+  if (!lsp_->running()) {
+    return;
+  }
+  hover_text_.reset();
+  lsp_->request_hover(filename(), cursor().line, cursor().col,
+                       [this](std::optional<std::string> text) { hover_text_ = std::move(text); });
 }
 
 size_t Editor::cursor_offset() const {

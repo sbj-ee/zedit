@@ -29,7 +29,7 @@ bool has_any_extension(std::string_view filename,
 }  // namespace
 
 std::unique_ptr<Highlighter> make_highlighter_for_filename(std::string_view filename) {
-  if (has_any_extension(filename, {".cpp", ".cc", ".cxx", ".hpp", ".h", ".hh"})) {
+  if (is_cpp_filename(filename)) {
     return std::make_unique<TreeSitterHighlighter>(tree_sitter_cpp(), kCppHighlightsQuery);
   }
   if (has_any_extension(filename, {".py", ".pyw"})) {
@@ -40,6 +40,10 @@ std::unique_ptr<Highlighter> make_highlighter_for_filename(std::string_view file
                                                      kMarkdownHighlightsQuery);
   }
   return std::make_unique<PlainHighlighter>();
+}
+
+bool is_cpp_filename(std::string_view filename) {
+  return has_any_extension(filename, {".cpp", ".cc", ".cxx", ".hpp", ".h", ".hh"});
 }
 
 }  // namespace zedit::core

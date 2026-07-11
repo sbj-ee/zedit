@@ -2,6 +2,7 @@
 
 namespace zedit::frontend {
 
+using zedit::core::DiagnosticSeverity;
 using zedit::core::TokenKind;
 
 ImU32 default_text_color() { return IM_COL32(220, 220, 220, 255); }
@@ -31,6 +32,20 @@ ImU32 color_for_token(TokenKind kind) {
       return default_text_color();
   }
   return default_text_color();
+}
+
+ImU32 color_for_severity(DiagnosticSeverity severity) {
+  switch (severity) {
+    case DiagnosticSeverity::Error:
+      return IM_COL32(240, 80, 80, 255);
+    case DiagnosticSeverity::Warning:
+      return IM_COL32(220, 180, 60, 255);
+    case DiagnosticSeverity::Information:
+      return IM_COL32(90, 170, 230, 255);
+    case DiagnosticSeverity::Hint:
+      return IM_COL32(150, 150, 150, 255);
+  }
+  return IM_COL32(240, 80, 80, 255);
 }
 
 }  // namespace zedit::frontend

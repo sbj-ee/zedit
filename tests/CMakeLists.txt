@@ -19,6 +19,12 @@ add_executable(zedit_tests
   core/test_windows.cpp
   core/test_diff.cpp
   core/test_diff_command.cpp
+  core/test_json_smoke.cpp
+  core/test_json_rpc_framing.cpp
+  core/test_subprocess.cpp
+  core/test_json_rpc_transport.cpp
+  core/test_lsp_clangd.cpp
+  core/test_editor_lsp.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE

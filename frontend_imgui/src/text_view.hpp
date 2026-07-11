@@ -1,10 +1,10 @@
 #pragma once
 
+#include <imgui.h>
+
 #include <cstddef>
 
 #include "zedit/core/editor.hpp"
-
-struct ImFont;
 
 namespace zedit::frontend {
 
@@ -18,8 +18,13 @@ class TextView {
   // if the pane was clicked this frame, so callers can give it focus.
   bool render(zedit::core::Editor& ed, ImFont* font, float height, float width = 0.0f);
 
+  // Screen-space top-left of the cursor glyph as of the last render() call,
+  // for positioning overlays (e.g. the hover popup) relative to it.
+  ImVec2 cursor_screen_pos() const { return cursor_screen_pos_; }
+
  private:
   size_t first_visible_line_ = 0;
+  ImVec2 cursor_screen_pos_{0.0f, 0.0f};
 
   void scroll_to_keep_cursor_visible(const zedit::core::Editor& ed,
                                       size_t visible_lines);
