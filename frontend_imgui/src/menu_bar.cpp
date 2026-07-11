@@ -8,6 +8,7 @@
 #include <string>
 
 #include "file_dialog.hpp"
+#include "file_finder.hpp"
 #include "find_replace_dialog.hpp"
 #include "recent_files.hpp"
 #include "update_checker.hpp"
@@ -120,6 +121,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   bool save_as_requested = false;
   bool about_requested = false;
   bool find_replace_requested = false;
+  bool find_file_requested = false;
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("File")) {
@@ -128,6 +130,9 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       }
       if (ImGui::MenuItem("Open...")) {
         open_requested = true;
+      }
+      if (ImGui::MenuItem("Find File...")) {
+        find_file_requested = true;
       }
       if (ImGui::BeginMenu("Recent Files")) {
         std::vector<std::string> recents = load_recent_files();
@@ -281,10 +286,14 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   if (find_replace_requested) {
     ImGui::OpenPopup("Find and Replace");
   }
+  if (find_file_requested) {
+    ImGui::OpenPopup("Find File");
+  }
   render_open_file_popup(ed);
   save_as_popup(ed);
   about_popup(icon_texture);
   render_find_replace_popup(ed);
+  render_find_file_popup(ed);
 }
 
 }  // namespace zedit::frontend
