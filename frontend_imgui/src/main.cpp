@@ -24,9 +24,11 @@
 #include "app.hpp"
 #include "font_manager.hpp"
 #include "theme.hpp"
+#include "update_checker.hpp"
 #include "zedit/core/config.hpp"
 #include "zedit/core/editor.hpp"
 #include "zedit/core/file_io.hpp"
+#include "zedit/core/version.hpp"
 #include "zedit_icon.hpp"
 
 namespace {
@@ -165,6 +167,12 @@ int main(int argc, char** argv) {
   apply_config(editor);
   zedit::frontend::App app(std::move(editor), font, icon_texture);
 
+  // A plain main()-local, never moved -- see update_checker.hpp for why
+  // that matters (a moved owner would dangle the background thread's
+  // captured `this`).
+  zedit::frontend::UpdateChecker update_checker;
+  update_checker.start_check(zedit::core::version_string());
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
@@ -172,7 +180,7 @@ int main(int argc, char** argv) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    app.render_frame(io);
+    app.render_frame(io, update_checker);
     if (app.should_close()) {
       glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
