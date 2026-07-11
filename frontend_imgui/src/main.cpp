@@ -3,6 +3,21 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wcast-align"
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+#endif
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <cstdio>
 #include <utility>
 
@@ -12,11 +27,33 @@
 #include "zedit/core/config.hpp"
 #include "zedit/core/editor.hpp"
 #include "zedit/core/file_io.hpp"
+#include "zedit_icon.hpp"
 
 namespace {
 
 void glfw_error_callback(int error, const char* description) {
   std::fprintf(stderr, "GLFW error %d: %s\n", error, description);
+}
+
+// The window/taskbar icon, embedded at build time (see EmbedBinary.cmake)
+// from assets/logo/zedit-128.png rather than loaded from a runtime path --
+// there's no reliable "relative to the binary" asset directory once zedit
+// is installed somewhere other than its build tree.
+void set_window_icon(GLFWwindow* window) {
+  int width = 0;
+  int height = 0;
+  int channels = 0;
+  unsigned char* pixels = stbi_load_from_memory(kZeditIconPng, static_cast<int>(kZeditIconPng_len),
+                                                 &width, &height, &channels, 4);
+  if (pixels == nullptr) {
+    return;  // Not fatal -- the OS just falls back to a generic window icon.
+  }
+  GLFWimage icon;
+  icon.width = width;
+  icon.height = height;
+  icon.pixels = pixels;
+  glfwSetWindowIcon(window, 1, &icon);
+  stbi_image_free(pixels);
 }
 
 zedit::core::Editor make_editor(int argc, char** argv) {
@@ -73,6 +110,7 @@ int main(int argc, char** argv) {
   }
   glfwMakeContextCurrent(window);
   glfwSwapInterval(1);
+  set_window_icon(window);
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();

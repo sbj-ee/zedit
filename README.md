@@ -1,3 +1,5 @@
+<img src="assets/logo/zedit-128.png" alt="zedit logo" width="96" height="96" align="left">
+
 # zedit
 
 A modal, vim-like text editor written in C++20, built on Dear ImGui + GLFW + OpenGL.
@@ -19,7 +21,7 @@ over neovim's modal, keyboard-driven editing power.
   scripting hook
 - GUI-editor shortcuts alongside the modal keybindings: Ctrl-A (select all),
   Ctrl-C (copy), Ctrl-P (paste), Ctrl-S (save) — all work mid-Insert too
-- Menu bar (File/Edit/View/Help) and toolbar for mouse-driven use
+- Menu bar (File/Edit/View/Help), with a directory-tree file browser for Open
 - Status bar: mode, cursor position, word count, file path
 
 ## Status
@@ -62,8 +64,10 @@ zedit.map("n", "Q", "dd")  -- non-recursive remap, like :noremap
   operators, undo, file I/O, syntax highlighting, LSP client, Lua config).
   No GUI dependencies; independently testable.
 - `frontend_imgui/` — the Dear ImGui/GLFW/OpenGL desktop frontend (menu bar,
-  toolbar, tabs, text view, status bar).
+  file browser, text view, status bar).
 - `tests/` — Catch2 unit and integration tests for `core/`.
+- `assets/logo/` — the app logo (SVG source + rasterized PNGs), also embedded
+  into the binary at build time as the window icon.
 
 ## License
 
