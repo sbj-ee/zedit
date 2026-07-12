@@ -37,6 +37,9 @@ ExCommand parse_ex_command(std::string_view input) {
   if (input == "ls") {
     return ExCommand{ExCommandKind::ListBuffers};
   }
+  if (input == "bd" || input == "bdelete") {
+    return ExCommand{ExCommandKind::CloseBuffer};
+  }
   if (input == "sp") {
     return ExCommand{ExCommandKind::SplitHorizontal};
   }

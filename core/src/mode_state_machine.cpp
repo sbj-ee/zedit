@@ -930,6 +930,9 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
       // The buffer list itself is rendered by the frontend (tab bar); this
       // command has nothing further to do at the core layer.
       break;
+    case ExCommandKind::CloseBuffer:
+      ed.close_buffer();
+      break;
     case ExCommandKind::SplitHorizontal:
       ed.split_horizontal();
       break;

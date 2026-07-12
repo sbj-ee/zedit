@@ -144,6 +144,10 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
         save_as_requested = true;
       }
       ImGui::Separator();
+      // Declines on a dirty buffer, same as ":q" -- see Editor::close_buffer.
+      if (ImGui::MenuItem("Close File", ":bd", false, !ed.dirty())) {
+        ed.close_buffer();
+      }
       if (ImGui::MenuItem("Quit")) {
         ed.request_quit();
       }
