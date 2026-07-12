@@ -3,8 +3,8 @@
 namespace zedit::core {
 
 inline constexpr int kVersionMajor = 1;
-inline constexpr int kVersionMinor = 4;
-inline constexpr int kVersionPatch = 1;
+inline constexpr int kVersionMinor = 5;
+inline constexpr int kVersionPatch = 0;
 
 const char* version_string();
 
