@@ -36,6 +36,20 @@ Core roadmap (M0–M7) complete: scaffolding, editing/motions/operators,
 undo/registers/Visual mode, search/buffers, syntax highlighting, splits/diff,
 LSP, and the Lua config system. Actively growing from there.
 
+## Installing
+
+**Linux (.deb):** download the latest release from
+[github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
+(currently
+[zedit-1.5.0-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.5.0/zedit-1.5.0-Linux-amd64.deb))
+and install with:
+
+```sh
+sudo dpkg -i zedit-1.5.0-Linux-amd64.deb
+```
+
+**macOS / build from source:** see "Building" below.
+
 ## Building
 
 Requires CMake 3.21+, a C++20 compiler, and Ninja (recommended).
