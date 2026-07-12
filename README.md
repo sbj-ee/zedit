@@ -41,11 +41,11 @@ LSP, and the Lua config system. Actively growing from there.
 **Linux (.deb):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.5.0-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.5.0/zedit-1.5.0-Linux-amd64.deb))
+[zedit-1.5.1-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.5.1/zedit-1.5.1-Linux-amd64.deb))
 and install with:
 
 ```sh
-sudo dpkg -i zedit-1.5.0-Linux-amd64.deb
+sudo dpkg -i zedit-1.5.1-Linux-amd64.deb
 ```
 
 **macOS / build from source:** see "Building" below.
