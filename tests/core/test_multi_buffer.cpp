@@ -128,6 +128,70 @@ TEST_CASE(":bn and :bp switch buffers via the key interface", "[buffers][integra
   REQUIRE(ed.current_buffer_index() == 2);
 }
 
+TEST_CASE("close_buffer removes the current buffer and lands on the next one",
+          "[buffers]") {
+  Editor ed;
+  ed.open_buffer("/tmp/zedit_test_buf_close_a.txt");
+  ed.open_buffer("/tmp/zedit_test_buf_close_b.txt");
+  REQUIRE(ed.buffer_count() == 3);
+  REQUIRE(ed.current_buffer_index() == 2);  // "...close_b.txt"
+
+  ed.close_buffer();
+  REQUIRE(ed.buffer_count() == 2);
+  REQUIRE(ed.current_buffer_index() == 0);  // wrapped to the default buffer
+}
+
+TEST_CASE("close_buffer on the last buffer resets it to a fresh empty one", "[buffers]") {
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("only content"));
+  ed.set_filename("/tmp/zedit_test_buf_close_only.txt");
+  ed.save();
+
+  ed.close_buffer();
+  REQUIRE(ed.buffer_count() == 1);
+  REQUIRE(ed.buffer().to_string().empty());
+  REQUIRE(ed.filename().empty());
+}
+
+TEST_CASE("close_buffer declines on a dirty buffer, same as :q", "[buffers]") {
+  Editor ed;
+  ed.open_buffer("/tmp/zedit_test_buf_close_dirty.txt");
+  feed(ed, "iunsaved\x1b");
+  REQUIRE(ed.dirty());
+
+  ed.close_buffer();
+  REQUIRE(ed.buffer_count() == 2);  // unchanged -- declined
+  REQUIRE(ed.buffer().to_string() == "unsaved");
+}
+
+TEST_CASE("closing a buffer moves every window viewing it to the fallback buffer",
+          "[buffers][windows]") {
+  std::string path_a = "/tmp/zedit_test_buf_close_windows_a.txt";
+  std::string path_b = "/tmp/zedit_test_buf_close_windows_b.txt";
+  Editor ed;
+  ed.open_buffer(path_a);                         // buffer 1; window 0 -> buffer 1
+  ed.split_horizontal();                          // window 1, duplicate: also buffer 1
+  ed.open_buffer(path_b);                         // buffer 2; window 1 (current) -> buffer 2
+  ed.set_current_window(0);                       // window 0 is still on buffer 1
+  REQUIRE(ed.current_buffer_index() == 1);
+
+  ed.close_buffer();  // closes buffer 1, current window is window 0
+  REQUIRE(ed.buffer_count() == 2);
+  REQUIRE(ed.filename() == path_b);  // window 0 landed on the fallback buffer
+
+  ed.set_current_window(1);
+  REQUIRE(ed.filename() == path_b);  // window 1 was already there, index just shifted down
+}
+
+TEST_CASE(":bd closes the current buffer via the key interface", "[buffers][integration]") {
+  Editor ed;
+  ed.open_buffer("/tmp/zedit_test_buf_close_ex.txt");
+  REQUIRE(ed.buffer_count() == 2);
+
+  feed(ed, ":bd\n");
+  REQUIRE(ed.buffer_count() == 1);
+}
+
 TEST_CASE("registers and search state are shared across buffers", "[buffers][integration]") {
   Editor ed;
   ed.buffer() = PieceTable(std::string("shared yank"));

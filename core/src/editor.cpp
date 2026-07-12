@@ -359,6 +359,53 @@ void Editor::prev_buffer() {
   }
 }
 
+void Editor::close_buffer() {
+  if (dirty()) {
+    return;
+  }
+  size_t closing = cur_window().buffer_index;
+
+  if (buffers_.size() <= 1) {
+    buffers_[0] = Buffer{};
+    for (Window& w : windows_) {
+      w.buffer_index = 0;
+      w.cursor = Cursor{};
+    }
+    diff_pair_.reset();
+    return;
+  }
+
+  // Land on the next buffer in the list (wrapping), same relationship
+  // next_buffer() has to the buffer list -- every window currently
+  // showing the buffer being closed moves there too, done before erasing
+  // so `closing`'s and the fallback's indices are still both valid.
+  size_t fallback = (closing + 1) % buffers_.size();
+  size_t saved_current = current_window_;
+  for (size_t i = 0; i < windows_.size(); ++i) {
+    if (windows_[i].buffer_index == closing) {
+      current_window_ = i;
+      switch_window_to_buffer(fallback);
+    }
+  }
+  current_window_ = saved_current;
+
+  buffers_.erase(buffers_.begin() + static_cast<std::ptrdiff_t>(closing));
+
+  // Every window's (and the diff pair's) buffer_index past `closing` just
+  // shifted down by one.
+  for (Window& w : windows_) {
+    if (w.buffer_index > closing) --w.buffer_index;
+  }
+  if (diff_pair_) {
+    if (diff_pair_->buffer_a == closing || diff_pair_->buffer_b == closing) {
+      diff_pair_.reset();
+    } else {
+      if (diff_pair_->buffer_a > closing) --diff_pair_->buffer_a;
+      if (diff_pair_->buffer_b > closing) --diff_pair_->buffer_b;
+    }
+  }
+}
+
 void Editor::open_buffer(const std::string& path) {
   for (size_t i = 0; i < buffers_.size(); ++i) {
     if (buffers_[i].filename == path) {

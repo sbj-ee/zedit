@@ -182,6 +182,19 @@ class Editor {
   void next_buffer();
   void prev_buffer();
   void open_buffer(const std::string& path);
+  // Closes the current window's buffer (:bd), same as File > Close File.
+  // A no-op if the buffer is dirty -- matching ":q" (see ExCommandKind::
+  // Quit's handling), which silently declines rather than prompting; this
+  // editor doesn't model an unsaved-changes confirmation dialog anywhere,
+  // so ":w" first is the only way to actually discard the buffer. Every
+  // window viewing the closed buffer (not just this one -- other splits
+  // could share it) moves to the next buffer in the list first, so no
+  // window is ever left pointing at a buffer index that no longer exists.
+  // If it's the last buffer, there's nothing to fall back to, so it's
+  // reset to a fresh empty one in place instead -- matching "File > New"
+  // -- since every Window/cur_buffer() call assumes at least one buffer
+  // always exists.
+  void close_buffer();
 
   // The current buffer's syntax highlighter (one per buffer, since
   // different open files can be different languages). Defaults to a
