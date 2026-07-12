@@ -155,6 +155,12 @@ int main(int argc, char** argv) {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
+  // This app has no dockable/movable panels (no ImGuiConfigFlags_
+  // DockingEnable, just a fixed menu bar/text view/status bar layout), so
+  // there's nothing worth persisting across launches -- left at its
+  // default, ImGui writes an "imgui.ini" into whatever directory `ze`
+  // happens to be started from.
+  io.IniFilename = nullptr;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
   ImFont* font = zedit::frontend::load_monospace_font(io, 18.0f);
