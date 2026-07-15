@@ -42,17 +42,17 @@ LSP, and the Lua config system. Actively growing from there.
 **Linux (.deb):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.5.1-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.5.1/zedit-1.5.1-Linux-amd64.deb))
+[zedit-1.6.0-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.6.0/zedit-1.6.0-Linux-amd64.deb))
 and install with:
 
 ```sh
-sudo dpkg -i zedit-1.5.1-Linux-amd64.deb
+sudo dpkg -i zedit-1.6.0-Linux-amd64.deb
 ```
 
 **macOS (.dmg):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.5.1-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.5.1/zedit-1.5.1-Darwin.dmg)),
+[zedit-1.6.0-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.6.0/zedit-1.6.0-Darwin.dmg)),
 open it, and drag `ze.app` to Applications. The app is unsigned, so on first
 launch Gatekeeper will refuse to open it — right-click `ze.app` and choose
 Open, then confirm in the dialog that appears (only needed once).
