@@ -16,7 +16,8 @@ over neovim's modal, keyboard-driven editing power.
 - Multiple buffers and windows (`:e`, `:bn`/`:bp`, `:sp`/`:vsp`, Ctrl-W),
   side-by-side file compare (`:diff`)
 - Syntax highlighting via tree-sitter (C++, Python, Markdown), a line-numbers
-  gutter, matching-bracket highlight, and optional word wrap (View menu)
+  gutter, matching-bracket highlight, and optional word wrap and whitespace
+  visualization (View menu)
 - LSP client (clangd): live diagnostics, go-to-definition (`gd`), hover (`K`)
 - Lua-based configuration: `~/.config/zedit/init.lua` sets options, colors,
   and keymaps via a small `zedit.*` API; `:lua <code>` runs Lua live as a

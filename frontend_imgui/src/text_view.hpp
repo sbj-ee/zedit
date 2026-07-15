@@ -14,12 +14,12 @@ namespace zedit::frontend {
 class TextView {
  public:
   // width == 0 means "fill available width" (the single-pane/stacked-split
-  // case); an explicit width is used for side-by-side panes. word_wrap
-  // applies uniformly to every pane (there's one toggle, not one per
-  // window). Returns true if the pane was clicked this frame, so callers
-  // can give it focus.
+  // case); an explicit width is used for side-by-side panes. word_wrap and
+  // show_whitespace apply uniformly to every pane (there's one toggle each,
+  // not one per window). Returns true if the pane was clicked this frame,
+  // so callers can give it focus.
   bool render(zedit::core::Editor& ed, ImFont* font, float height, float width = 0.0f,
-              bool word_wrap = false);
+              bool word_wrap = false, bool show_whitespace = false);
 
   // Screen-space top-left of the cursor glyph as of the last render() call,
   // for positioning overlays (e.g. the hover popup) relative to it.

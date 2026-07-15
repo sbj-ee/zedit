@@ -448,6 +448,30 @@ void draw_line_text(ImDrawList* draw_list, std::string_view text, size_t row_sta
   draw_run(pos, row_end_byte, default_text_color());
 }
 
+// Marks each space character in a row with a small faint dot centered in
+// its cell, the same "visible whitespace" convention VS Code/Sublime use.
+// Drawn as a circle rather than relying on AddText for some placeholder
+// glyph -- a literal U+0020 has no ink of its own, so text rendering alone
+// can never make it visible. Positions come from col_offset_x (the same
+// per-glyph measurement draw_line_text and the cursor use), not
+// col * char_width, so the dot lands in the actual cell even where prior
+// glyphs' advances have drifted from the "M"-derived estimate.
+void draw_whitespace_dots(ImDrawList* draw_list, std::string_view text, ImVec2 row_origin,
+                           float line_height) {
+  ImU32 color = whitespace_dot_color();
+  float radius = std::clamp(line_height * 0.07f, 1.0f, 2.5f);
+  for (size_t col = 0; col < text.size(); ++col) {
+    if (text[col] != ' ') {
+      continue;
+    }
+    float cell_start = col_offset_x(text, col);
+    float cell_end = col_offset_x(text, col + 1);
+    ImVec2 center(row_origin.x + (cell_start + cell_end) * 0.5f,
+                  row_origin.y + line_height * 0.5f);
+    draw_list->AddCircleFilled(center, radius, color);
+  }
+}
+
 }  // namespace
 
 void TextView::scroll_to_keep_cursor_visible(const Editor& ed, size_t visible_rows) {
@@ -466,7 +490,8 @@ void TextView::scroll_to_keep_cursor_visible(const Editor& ed, size_t visible_ro
   }
 }
 
-bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool word_wrap) {
+bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool word_wrap,
+                       bool show_whitespace) {
   ImGui::PushFont(font);
 
   ImVec2 char_size = ImGui::CalcTextSize("M");
@@ -536,6 +561,9 @@ bool TextView::render(Editor& ed, ImFont* font, float height, float width, bool 
     size_t line_start_byte = buf.line_start_offset(row.buffer_line);
     draw_line_text(draw_list, row_text, line_start_byte + row.start_col, visible_spans,
                     ImVec2(text_origin.x, y));
+    if (show_whitespace) {
+      draw_whitespace_dots(draw_list, row_text, ImVec2(text_origin.x, y), line_height);
+    }
   }
 
   draw_diagnostics(draw_list, ed, buf, text_origin, rows, line_height);
