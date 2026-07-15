@@ -47,6 +47,8 @@ class App {
   std::string last_recorded_filename_;
   // One toggle for every pane, not per-window -- see View > Word Wrap.
   bool word_wrap_ = false;
+  // One toggle for every pane, not per-window -- see View > Show Whitespace.
+  bool show_whitespace_ = false;
   // Sticky once set: the checker's poll() only reports a found update
   // once (see its own doc comment), so this is what actually persists
   // it across frames for the Help menu to keep showing.

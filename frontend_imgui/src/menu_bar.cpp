@@ -87,7 +87,7 @@ void about_popup(ImTextureID icon_texture) {
 }  // namespace
 
 void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
-                      UpdateChecker& update_checker,
+                      bool& show_whitespace, UpdateChecker& update_checker,
                       std::optional<zedit::core::UpdateInfo>& available_update) {
   bool open_requested = false;
   bool save_as_requested = false;
@@ -202,6 +202,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       }
       ImGui::Separator();
       ImGui::MenuItem("Word Wrap", nullptr, &word_wrap);
+      ImGui::MenuItem("Show Whitespace", nullptr, &show_whitespace);
       ImGui::Separator();
       // MenuItem flips *p_selected itself and returns true on click, so
       // by the time this branch runs, vi_mode already holds the new
@@ -301,6 +302,8 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       {"Close Window", ":close", [&ed] { ed.close_window(); }},
       {"Next Window", "Ctrl+W", [&ed] { ed.next_window(); }},
       {"Toggle Word Wrap", "", [&word_wrap] { word_wrap = !word_wrap; }},
+      {"Toggle Show Whitespace", "",
+       [&show_whitespace] { show_whitespace = !show_whitespace; }},
       {"Sort Lines (A-Z)", "", [&ed] { sort_selection_or_all(ed, /*reverse=*/false); }},
       {"Sort Lines (Z-A)", "", [&ed] { sort_selection_or_all(ed, /*reverse=*/true); }},
       {"Compare With...", "",

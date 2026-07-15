@@ -58,7 +58,8 @@ void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
     }
   }
 
-  render_menu_bar(editor_, icon_texture_, word_wrap_, update_checker, available_update_);
+  render_menu_bar(editor_, icon_texture_, word_wrap_, show_whitespace_, update_checker,
+                   available_update_);
 
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -96,7 +97,8 @@ void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
     if (focused && window_count > 1) {
       ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.40f, 0.55f, 0.90f, 1.0f));
     }
-    bool clicked = text_views_[i].render(editor_, font_, pane_height, pane_width, word_wrap_);
+    bool clicked = text_views_[i].render(editor_, font_, pane_height, pane_width, word_wrap_,
+                                          show_whitespace_);
     if (focused && window_count > 1) {
       ImGui::PopStyleColor();
     }

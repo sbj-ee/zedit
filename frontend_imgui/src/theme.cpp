@@ -66,6 +66,10 @@ ImU32 default_for_name(std::string_view name) {
   if (name == "warning") return IM_COL32(220, 180, 60, 255);
   if (name == "information") return IM_COL32(90, 170, 230, 255);
   if (name == "hint") return IM_COL32(150, 150, 150, 255);
+  // Faint on purpose -- a visible-whitespace dot marks a space without
+  // competing with the surrounding text for attention the way a
+  // full-brightness glyph color would.
+  if (name == "whitespace") return IM_COL32(120, 120, 120, 90);
   return IM_COL32(220, 220, 220, 255);  // "text" and anything unrecognized
 }
 
@@ -83,6 +87,8 @@ ImU32 color_for_token(TokenKind kind) { return color_for_name(name_for_token(kin
 ImU32 color_for_severity(DiagnosticSeverity severity) {
   return color_for_name(name_for_severity(severity));
 }
+
+ImU32 whitespace_dot_color() { return color_for_name("whitespace"); }
 
 void apply_color_overrides(const std::unordered_map<std::string, RgbColor>& colors) {
   for (const auto& [name, rgb] : colors) {
