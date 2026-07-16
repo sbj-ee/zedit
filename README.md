@@ -49,7 +49,7 @@ and install with:
 sudo dpkg -i zedit-1.6.0-Linux-amd64.deb
 ```
 
-**macOS (.dmg):** download the latest release from
+**macOS (.dmg, Apple Silicon only):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
 [zedit-1.6.0-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.6.0/zedit-1.6.0-Darwin.dmg)),
@@ -78,7 +78,8 @@ ctest --test-dir build --output-on-failure
 
 Builds a `.deb` on Linux, and (from an actual macOS machine — CPack's
 DragNDrop generator shells out to `hdiutil`, which doesn't exist on Linux) a
-`.dmg` on macOS, via CPack:
+`.dmg` on macOS, via CPack. The macOS build defaults to Apple Silicon only
+(`CMAKE_OSX_ARCHITECTURES=arm64`, set in `CMakeLists.txt`):
 
 ```sh
 cmake -B build -G Ninja
