@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -81,13 +82,24 @@ fs::path find_project_root(const fs::path& start) {
   return canonical;
 }
 
-// Where a picker should scan from: the open buffer's directory (or the
-// cwd for an unnamed buffer), walked up to that file's project root.
+// The process cwd is meaningless for a GUI app launched from Finder or
+// `open` (typically the app bundle's own directory), so $HOME is the sane
+// fallback when there's no open file to anchor on. Falls back further to
+// cwd only if $HOME isn't set either.
+fs::path home_directory() {
+  if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
+    return fs::path(home);
+  }
+  return fs::current_path();
+}
+
+// Where a picker should scan from: the open buffer's directory (or $HOME
+// for an unnamed buffer), walked up to that file's project root.
 fs::path scan_root_for(const Editor& ed) {
   fs::path start =
-      ed.filename().empty() ? fs::current_path() : fs::path(ed.filename()).parent_path();
+      ed.filename().empty() ? home_directory() : fs::path(ed.filename()).parent_path();
   if (start.empty()) {
-    start = fs::current_path();
+    start = home_directory();
   }
   return find_project_root(start);
 }
