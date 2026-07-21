@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -79,18 +80,30 @@ std::optional<std::string> render_directory_browser(fs::path& current_dir, bool&
   return picked;
 }
 
+// The process cwd is meaningless for a GUI app launched from Finder or
+// `open` (it's typically the app bundle's own directory, not anywhere the
+// user would recognize), so $HOME is the sane fallback when there's no
+// open file to anchor on. Falls back further to cwd only if $HOME isn't
+// set either.
+fs::path home_directory() {
+  if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
+    return fs::path(home);
+  }
+  return fs::current_path();
+}
+
 // Resolves the directory a popup should start browsing from: an existing
 // file's parent directory (canonicalized, so ".." navigation and display
-// are consistent), falling back to the cwd for an unnamed buffer or if
+// are consistent), falling back to $HOME for an unnamed buffer or if
 // canonicalization fails (e.g. the parent no longer exists).
 fs::path starting_directory(const std::string& filename) {
-  fs::path start = filename.empty() ? fs::current_path() : fs::path(filename).parent_path();
+  fs::path start = filename.empty() ? home_directory() : fs::path(filename).parent_path();
   if (start.empty()) {
-    start = fs::current_path();
+    start = home_directory();
   }
   std::error_code ec;
   fs::path canonical = fs::canonical(start, ec);
-  return ec ? fs::current_path() : canonical;
+  return ec ? home_directory() : canonical;
 }
 
 }  // namespace
