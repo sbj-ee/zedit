@@ -80,7 +80,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and push to
 `main`:
 
 - **Linux (ubuntu-latest):** configure (Ninja) → build → `ctest` → CPack `.deb` artifact
-- **macOS (macos-14, Apple Silicon):** configure (arm64) → build → `ctest`
+- **macOS (macos-14, Apple Silicon):** configure (arm64) → build → `ctest` → CPack `.dmg` artifact (unsigned)
 
 No Windows / Intel Mac runners (platform policy).
 

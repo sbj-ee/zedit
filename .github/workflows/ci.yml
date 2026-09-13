@@ -60,6 +60,8 @@ jobs:
         run: |
           brew install cmake ninja
           # OpenGL / Cocoa come with the Xcode CLT on the runner.
+          # CPack DragNDrop uses hdiutil (present on macOS runners).
+          # Unsigned .dmg is fine — same Gatekeeper story as published releases.
 
       - name: Configure (arm64)
         run: |
@@ -72,3 +74,16 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+      - name: Package .dmg
+        run: |
+          cd build
+          cpack -G DragNDrop
+          ls -la *.dmg
+
+      - name: Upload .dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zedit-macos-arm64-dmg
+          path: build/*.dmg
+          if-no-files-found: error
