@@ -23,6 +23,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             cmake ninja-build g++ pkg-config \
+            clang clangd \
             libgl1-mesa-dev \
             libx11-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev \
             libwayland-dev libxkbcommon-dev \
