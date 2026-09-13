@@ -74,6 +74,17 @@ cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
 
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and push to
+`main`:
+
+- **Linux (ubuntu-latest):** configure (Ninja) → build → `ctest` → CPack `.deb` artifact
+- **macOS (macos-14, Apple Silicon):** configure (arm64) → build → `ctest` → CPack `.dmg` artifact (unsigned)
+
+No Windows / Intel Mac runners (platform policy).
+
+
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
