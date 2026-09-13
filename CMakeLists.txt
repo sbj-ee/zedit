@@ -20,7 +20,7 @@ endif()
 # core/ generates include/zedit/core/version.hpp from these numbers
 # (About dialog, update check, tests). CPack and macOS bundle already
 # use PROJECT_VERSION.
-project(zedit VERSION 1.7.0 LANGUAGES CXX C)
+project(zedit VERSION 1.7.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
