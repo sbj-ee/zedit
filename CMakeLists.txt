@@ -16,8 +16,10 @@ endif()
 # scanner.c) are compiled directly as part of this project (see
 # cmake/TreeSitterGrammar.cmake), not via a subproject with its own C-only
 # project() call.
-# VERSION is kept in sync with core/include/zedit/core/version.hpp by
-# hand (no generation step) -- update both together on a version bump.
+# Single source of truth for version: bump ONLY the VERSION here.
+# core/ generates include/zedit/core/version.hpp from these numbers
+# (About dialog, update check, tests). CPack and macOS bundle already
+# use PROJECT_VERSION.
 project(zedit VERSION 1.6.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
