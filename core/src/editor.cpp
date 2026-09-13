@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "zedit/core/file_io.hpp"
+#include "zedit/core/recovery.hpp"
 #include "zedit/core/languages.hpp"
 #include "zedit/core/search.hpp"
 
@@ -25,6 +26,8 @@ Editor Editor::open_file(const std::string& path) {
   Editor ed;
   ed.cur_buffer().content = PieceTable(read_file(path));
   ed.set_filename(path);
+  ed.refresh_abs_path_and_baseline();
+  ed.maybe_queue_recovery();
   return ed;
 }
 
@@ -178,11 +181,22 @@ void Editor::save() {
   }
   write_file(filename(), buffer().to_string());
   cur_buffer().dirty = false;
+  cur_buffer().recovery_debounce.clear();
+  refresh_abs_path_and_baseline();
+  clear_swap(cur_buffer().abs_path);
 }
 
 void Editor::save_as(const std::string& path) {
+  const std::string old_abs = cur_buffer().abs_path.empty()
+                                  ? absolute_path_for_swap(filename())
+                                  : cur_buffer().abs_path;
   set_filename(path);
   save();
+  // Path rename / Save As: drop the old key so we don't leave a stale swap.
+  const std::string new_abs = cur_buffer().abs_path;
+  if (!old_abs.empty() && old_abs != new_abs) {
+    clear_swap(old_abs);
+  }
 }
 
 void Editor::erase_range(size_t offset, size_t length) {
@@ -429,6 +443,8 @@ void Editor::open_buffer(const std::string& path) {
   buffers_.push_back(std::move(buf));
   switch_window_to_buffer(buffers_.size() - 1);
   set_filename(path);
+  refresh_abs_path_and_baseline();
+  maybe_queue_recovery();
 }
 
 void Editor::do_split(SplitLayout requested) {
@@ -526,6 +542,74 @@ std::vector<DiffLineStatus> Editor::git_diff_status() {
   DiffResult result =
       diff_lines(buffer_lines(PieceTable(*buf.git_head_content)), buffer_lines(buf.content));
   return result.right;
+}
+
+
+void Editor::refresh_abs_path_and_baseline() {
+  if (filename().empty()) {
+    cur_buffer().abs_path.clear();
+    cur_buffer().disk_baseline = Baseline{};
+    return;
+  }
+  cur_buffer().abs_path = absolute_path_for_swap(filename());
+  cur_buffer().disk_baseline = baseline_for_path(cur_buffer().abs_path);
+}
+
+void Editor::maybe_queue_recovery() {
+  if (cur_buffer().abs_path.empty()) {
+    return;
+  }
+  if (auto offer = consider_recovery(cur_buffer().abs_path, buffer().to_string())) {
+    pending_recovery_ = std::move(offer);
+  }
+}
+
+void Editor::accept_recovery() {
+  if (!pending_recovery_) {
+    return;
+  }
+  // Prefer applying to the buffer whose abs_path matches the offer.
+  for (size_t i = 0; i < buffers_.size(); ++i) {
+    if (buffers_[i].abs_path == pending_recovery_->path ||
+        buffers_[i].filename == pending_recovery_->path) {
+      switch_window_to_buffer(i);
+      break;
+    }
+  }
+  begin_undo_group();
+  cur_buffer().content = PieceTable(pending_recovery_->content);
+  cur_buffer().dirty = true;
+  cur_buffer().highlighter->set_text(cur_buffer().content.to_string());
+  if (lsp_->running() && is_cpp_filename(cur_buffer().filename)) {
+    lsp_->change_document(cur_buffer().filename, cur_buffer().content.to_string());
+  }
+  // Keep swap until a later successful save (second-crash safety).
+  pending_recovery_.reset();
+  set_cursor(Cursor{});
+  clamp_cursor_to_line();
+}
+
+void Editor::discard_recovery() {
+  if (!pending_recovery_) {
+    return;
+  }
+  clear_swap(pending_recovery_->path);
+  pending_recovery_.reset();
+}
+
+void Editor::poll_recovery() {
+  for (Buffer& buf : buffers_) {
+    if (!buf.recovery_debounce.poll()) {
+      continue;
+    }
+    if (buf.filename.empty() || !buf.dirty) {
+      continue;
+    }
+    if (buf.abs_path.empty()) {
+      buf.abs_path = absolute_path_for_swap(buf.filename);
+    }
+    write_swap_atomic(buf.abs_path, buf.content.to_string(), buf.disk_baseline);
+  }
 }
 
 }  // namespace zedit::core

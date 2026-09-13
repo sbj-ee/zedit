@@ -53,6 +53,10 @@ class App {
   // once (see its own doc comment), so this is what actually persists
   // it across frames for the Help menu to keep showing.
   std::optional<zedit::core::UpdateInfo> available_update_;
+  // Latches OpenPopup for the recovery modal so we only open once
+  // per pending offer (ImGui needs OpenPopup on the frame before/
+  // of BeginPopupModal).
+  bool recovery_popup_opened_ = false;
 };
 
 }  // namespace zedit::frontend

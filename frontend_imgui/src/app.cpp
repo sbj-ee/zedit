@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <string>
 #include <utility>
 
 #include "input_map.hpp"
@@ -17,6 +18,7 @@ App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
 
 void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
   editor_.poll_lsp();
+  editor_.poll_recovery();
 
   if (!available_update_.has_value()) {
     if (std::optional<zedit::core::UpdateInfo> found = update_checker.poll()) {
@@ -132,6 +134,43 @@ void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
     ImGui::PopFont();
     ImGui::End();
   }
+
+  // Crash-recovery offer: deferred to the first frame after open so ImGui is
+  // up (CLI initial path included). OpenPopup once when the offer appears.
+  if (editor_.pending_recovery().has_value()) {
+    if (!recovery_popup_opened_) {
+      ImGui::OpenPopup("Recover unsaved changes");
+      recovery_popup_opened_ = true;
+    }
+  } else {
+    recovery_popup_opened_ = false;
+  }
+  if (ImGui::BeginPopupModal("Recover unsaved changes", nullptr,
+                             ImGuiWindowFlags_AlwaysAutoResize)) {
+    const auto& offer = editor_.pending_recovery();
+    std::string label = offer ? offer->path : std::string{};
+    // Show basename when possible.
+    auto slash = label.find_last_of("/\\");
+    if (slash != std::string::npos) {
+      label = label.substr(slash + 1);
+    }
+    ImGui::Text("Recover unsaved changes to \"%s\"?", label.c_str());
+    ImGui::Spacing();
+    if (ImGui::Button("Recover", ImVec2(120, 0))) {
+      editor_.accept_recovery();
+      ImGui::CloseCurrentPopup();
+      recovery_popup_opened_ = false;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Discard", ImVec2(120, 0))) {
+      editor_.discard_recovery();
+      ImGui::CloseCurrentPopup();
+      recovery_popup_opened_ = false;
+    }
+    ImGui::EndPopup();
+  }
+
+
 }
 
 }  // namespace zedit::frontend

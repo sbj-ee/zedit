@@ -31,6 +31,13 @@ over neovim's modal, keyboard-driven editing power.
 - A backstop max file size (256 MB) against accidentally opening something
   never meant to fit in memory whole
 
+
+## Crash recovery
+
+Unsaved edits to named files are periodically written to a hidden swap file
+under the platform cache directory (not next to the project file). On reopen,
+zedit offers to recover or discard. See [docs/crash-recovery.md](docs/crash-recovery.md).
+
 ## Status
 
 Core roadmap (M0–M7) complete: scaffolding, editing/motions/operators,
