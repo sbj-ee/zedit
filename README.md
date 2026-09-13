@@ -74,6 +74,20 @@ cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
 
+## Version bumps
+
+**One place only:** the `VERSION` argument of `project()` in the top-level
+`CMakeLists.txt` (currently `1.6.1`). Configure regenerates
+`version.hpp` for the About dialog / update checker; CPack and the macOS
+bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
+
+```cmake
+project(zedit VERSION 1.6.2 LANGUAGES CXX C)  # example bump
+```
+
+Then rebuild, run tests, tag, and re-cpack. Update README download links
+to the new release asset names when you publish.
+
 ## Packaging
 
 Builds a `.deb` on Linux, and (from an actual macOS machine — CPack's

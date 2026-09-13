@@ -1,3 +1,11 @@
+# version.hpp is generated from the top-level project(VERSION ...) so About,
+# update-check, and CPack cannot drift (see PR #34 class of bug).
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/zedit/core/version.hpp.in
+  ${CMAKE_CURRENT_BINARY_DIR}/generated/zedit/core/version.hpp
+  @ONLY
+)
+
 add_library(zedit_core STATIC
   src/version.cpp
   src/piece_table.cpp
@@ -24,6 +32,7 @@ add_library(zedit_core STATIC
 
 target_include_directories(zedit_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 target_link_libraries(zedit_core PRIVATE zedit_warnings)
