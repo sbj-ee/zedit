@@ -53,9 +53,19 @@ sudo dpkg -i zedit-1.7.0-Linux-amd64.deb
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
 [zedit-1.7.0-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.0/zedit-1.7.0-Darwin.dmg)),
-open it, and drag `ze.app` to Applications. The app is unsigned, so on first
-launch Gatekeeper will refuse to open it — right-click `ze.app` and choose
-Open, then confirm in the dialog that appears (only needed once).
+open it, and drag `ze.app` to Applications.
+
+The CI `.dmg` is **unsigned**. After a Safari (or browser) download, Gatekeeper
+often shows *"ze is damaged and can’t be opened. You should move it to the
+Trash."* — that is the quarantine flag, not a corrupt binary. Clear it, then
+open normally:
+
+```sh
+xattr -cr /Applications/ze.app
+```
+
+(Only needed once per install/update.) Right-click → Open sometimes works for
+older Gatekeeper prompts, but the “damaged” dialog needs `xattr` as above.
 
 ## Building
 
