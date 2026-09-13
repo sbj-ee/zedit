@@ -19,6 +19,7 @@
 #include "zedit/core/mode_state_machine.hpp"
 #include "zedit/core/piece_table.hpp"
 #include "zedit/core/registers.hpp"
+#include "zedit/core/recovery.hpp"
 
 namespace zedit::core {
 
@@ -268,6 +269,15 @@ class Editor {
   const std::optional<std::string>& hover_text() const { return hover_text_; }
   void dismiss_hover() { hover_text_.reset(); }
 
+  // Crash-recovery swap (see docs/crash-recovery.md). poll_recovery() flushes
+  // debounced autosaves; pending_recovery() is set after open when a swap
+  // offers unsaved text. The frontend owns the Recover/Discard modal.
+  std::optional<RecoveryOffer> pending_recovery() const { return pending_recovery_; }
+  void accept_recovery();
+  void discard_recovery();
+  void poll_recovery();
+
+
   // Options (set via a config script's zedit.set_option(), or the :lua
   // command). Deliberately just one field rather than a generic key-value
   // bag -- add more fields here as real options accumulate.
@@ -307,6 +317,11 @@ class Editor {
     // any repo is only ever probed once, not every frame.
     std::optional<std::string> git_head_content;
     bool git_head_fetched = false;
+    // Absolute path used as the swap key (weakly_canonical when possible).
+    std::string abs_path;
+    // On-disk file identity at last successful load/save.
+    Baseline disk_baseline;
+    RecoveryDebouncer recovery_debounce;
   };
 
   struct Window {
@@ -337,6 +352,7 @@ class Editor {
   std::unique_ptr<LspManager> lsp_ = std::make_unique<LspManager>();
   std::optional<std::string> hover_text_;
   int tabstop_ = 4;
+  std::optional<RecoveryOffer> pending_recovery_;
 
   Window& cur_window() { return windows_[current_window_]; }
   const Window& cur_window() const { return windows_[current_window_]; }
@@ -351,7 +367,12 @@ class Editor {
     if (lsp_->running() && is_cpp_filename(cur_buffer().filename)) {
       lsp_->change_document(cur_buffer().filename, cur_buffer().content.to_string());
     }
+    if (!cur_buffer().filename.empty()) {
+      cur_buffer().recovery_debounce.arm();
+    }
   }
+  void refresh_abs_path_and_baseline();
+  void maybe_queue_recovery();
 };
 
 }  // namespace zedit::core

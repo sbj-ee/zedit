@@ -28,6 +28,7 @@ add_library(zedit_core STATIC
   src/update_check.cpp
   src/fuzzy_match.cpp
   src/git_diff.cpp
+  src/recovery.cpp
 )
 
 target_include_directories(zedit_core PUBLIC
