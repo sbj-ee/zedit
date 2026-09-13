@@ -110,10 +110,39 @@ void register_api(lua_State* L, ConfigResult* result) {
 
 }  // namespace
 
+// Open only the libraries config scripts need (tables, strings, math, and
+// a scrubbed base). Intentionally omitted: package / io / os / debug /
+// coroutine -- those enable shell and filesystem escape from init.lua or
+// `:lua`. Also nil out load/loadfile/dofile/require left in base.
+void open_sandboxed_libs(lua_State* L) {
+  static const luaL_Reg kSafeLibs[] = {
+      {LUA_GNAME, luaopen_base},
+      {LUA_TABLIBNAME, luaopen_table},
+      {LUA_STRLIBNAME, luaopen_string},
+      {LUA_MATHLIBNAME, luaopen_math},
+      {LUA_UTF8LIBNAME, luaopen_utf8},
+      {nullptr, nullptr},
+  };
+  for (const luaL_Reg* lib = kSafeLibs; lib->func != nullptr; ++lib) {
+    luaL_requiref(L, lib->name, lib->func, 1);
+    lua_pop(L, 1);
+  }
+
+  static const char* kBlockedGlobals[] = {
+      "dofile", "loadfile", "load", "require", "collectgarbage",
+      // Defense in depth if a future Lua build exposes these on _G:
+      "os", "io", "package", "debug", "coroutine",
+  };
+  for (const char* name : kBlockedGlobals) {
+    lua_pushnil(L);
+    lua_setglobal(L, name);
+  }
+}
+
 ConfigResult eval_lua(const std::string& lua_source) {
   ConfigResult result;
   lua_State* L = luaL_newstate();
-  luaL_openlibs(L);
+  open_sandboxed_libs(L);
   register_api(L, &result);
 
   if (luaL_dostring(L, lua_source.c_str()) != LUA_OK) {

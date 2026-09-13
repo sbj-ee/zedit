@@ -122,7 +122,8 @@ cp assets/logo/zedit-128.png ~/.local/share/icons/hicolor/128x128/apps/zedit.png
 ## Configuration
 
 Drop a `~/.config/zedit/init.lua` (or set `$ZEDIT_CONFIG` to a path) to
-customize options, colors, and keymaps:
+customize options, colors, and keymaps. Lua runs in a **sandbox** (no
+`os`/`io`/`require`/`loadfile` — config scripts cannot shell out):
 
 ```lua
 zedit.set_option("tabstop", 2)
@@ -142,6 +143,7 @@ zedit.map("n", "Q", "dd")  -- non-recursive remap, like :noremap
   embedded into the binary at build time as the window icon.
 - `assets/linux/` — the `.desktop` entry for Linux desktop integration.
 - `cmake/Packaging.cmake` — the `.deb`/`.dmg` CPack configuration.
+- `third_party/stb/` — vendored pinned `stb_image.h` (window icon decode).
 
 ## License
 

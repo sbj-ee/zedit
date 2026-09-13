@@ -175,17 +175,13 @@ if(UNIX)
   target_link_libraries(lua PRIVATE m)
 endif()
 
-# ---- stb_image (single header) --------------------------------------------
+# ---- stb_image (single header, vendored) ----------------------------------
 # Used only to load the window icon PNG at startup -- Dear ImGui's own font
 # atlas uses its bundled stb_truetype for TTF glyphs, not this, so this is
-# the only place PNG decoding is needed. A single header, so it's just
-# downloaded directly rather than declared as a git FetchContent dependency.
-set(STB_IMAGE_DIR ${CMAKE_BINARY_DIR}/_deps/stb_image-src)
-file(MAKE_DIRECTORY ${STB_IMAGE_DIR})
-file(DOWNLOAD
-  https://raw.githubusercontent.com/nothings/stb/master/stb_image.h
-  ${STB_IMAGE_DIR}/stb_image.h
-)
+# the only place PNG decoding is needed. Vendored under third_party/stb at a
+# pinned commit (see third_party/stb/README.md) so builds are reproducible
+# and do not hit the network / floating `master` at configure time.
+set(STB_IMAGE_DIR ${CMAKE_SOURCE_DIR}/third_party/stb)
 add_library(stb_image INTERFACE)
 target_include_directories(stb_image INTERFACE ${STB_IMAGE_DIR})
 
