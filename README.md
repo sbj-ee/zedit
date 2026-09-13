@@ -49,17 +49,17 @@ LSP, and the Lua config system. Actively growing from there.
 **Linux (.deb):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.7.0-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.7.0/zedit-1.7.0-Linux-amd64.deb))
+[zedit-1.7.1-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.7.1/zedit-1.7.1-Linux-amd64.deb))
 and install with:
 
 ```sh
-sudo dpkg -i zedit-1.7.0-Linux-amd64.deb
+sudo dpkg -i zedit-1.7.1-Linux-amd64.deb
 ```
 
 **macOS (.dmg, Apple Silicon only):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.7.0-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.0/zedit-1.7.0-Darwin.dmg)),
+[zedit-1.7.1-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.1/zedit-1.7.1-Darwin.dmg)),
 open it, and drag `ze.app` to Applications.
 
 The CI `.dmg` is **unsigned**. After a Safari (or browser) download, Gatekeeper
@@ -94,7 +94,7 @@ ctest --test-dir build --output-on-failure
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.7.0`). Configure regenerates
+`CMakeLists.txt` (currently `1.7.1`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 
