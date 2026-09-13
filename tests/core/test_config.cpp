@@ -124,3 +124,30 @@ TEST_CASE("default_config_path honors ZEDIT_CONFIG", "[config]") {
     unsetenv("ZEDIT_CONFIG");
   }
 }
+
+TEST_CASE("eval_lua sandbox blocks os.execute", "[config][sandbox]") {
+  auto result = eval_lua(R"(os.execute("true"))");
+  REQUIRE_FALSE(result.errors.empty());
+}
+
+TEST_CASE("eval_lua sandbox blocks io.open", "[config][sandbox]") {
+  auto result = eval_lua(R"(io.open("/etc/passwd", "r"))");
+  REQUIRE_FALSE(result.errors.empty());
+}
+
+TEST_CASE("eval_lua sandbox blocks require and loadfile", "[config][sandbox]") {
+  auto require_result = eval_lua(R"(require("os"))");
+  REQUIRE_FALSE(require_result.errors.empty());
+  auto loadfile_result = eval_lua(R"(loadfile("/etc/passwd"))");
+  REQUIRE_FALSE(loadfile_result.errors.empty());
+}
+
+TEST_CASE("eval_lua sandbox still allows string/math used by configs", "[config][sandbox]") {
+  auto result = eval_lua(R"(
+    zedit.set_option("tabstop", math.floor(3.9))
+    zedit.set_color("comment", string.format("#%02x%02x%02x", 1, 2, 3))
+  )");
+  REQUIRE(result.errors.empty());
+  REQUIRE(*result.options.tabstop == 3);
+  REQUIRE(result.colors.at("comment").r == 1);
+}
