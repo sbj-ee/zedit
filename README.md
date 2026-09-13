@@ -42,17 +42,17 @@ LSP, and the Lua config system. Actively growing from there.
 **Linux (.deb):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.6.1-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.6.1/zedit-1.6.1-Linux-amd64.deb))
+[zedit-1.7.0-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.7.0/zedit-1.7.0-Linux-amd64.deb))
 and install with:
 
 ```sh
-sudo dpkg -i zedit-1.6.1-Linux-amd64.deb
+sudo dpkg -i zedit-1.7.0-Linux-amd64.deb
 ```
 
 **macOS (.dmg, Apple Silicon only):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.6.0-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.6.0/zedit-1.6.0-Darwin.dmg)),
+[zedit-1.7.0-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.0/zedit-1.7.0-Darwin.dmg)),
 open it, and drag `ze.app` to Applications. The app is unsigned, so on first
 launch Gatekeeper will refuse to open it — right-click `ze.app` and choose
 Open, then confirm in the dialog that appears (only needed once).
@@ -74,26 +74,15 @@ cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
 
-## Continuous integration
-
-GitHub Actions (`.github/workflows/ci.yml`) runs on every PR and push to
-`main`:
-
-- **Linux (ubuntu-latest):** configure (Ninja) → build → `ctest` → CPack `.deb` artifact
-- **macOS (macos-14, Apple Silicon):** configure (arm64) → build → `ctest` → CPack `.dmg` artifact (unsigned)
-
-No Windows / Intel Mac runners (platform policy).
-
-
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.6.1`). Configure regenerates
+`CMakeLists.txt` (currently `1.7.0`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 
 ```cmake
-project(zedit VERSION 1.6.2 LANGUAGES CXX C)  # example bump
+project(zedit VERSION 1.7.1 LANGUAGES CXX C)  # example bump
 ```
 
 Then rebuild, run tests, tag, and re-cpack. Update README download links
