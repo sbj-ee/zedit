@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -20,6 +21,11 @@ namespace fs = std::filesystem;
 using zedit::core::Editor;
 
 namespace {
+
+// Matches the directory browser child width so path labels and the Path
+// InputText stay aligned and never force the AlwaysAutoResize modal wider
+// than the list (long paths used to shove the field off-screen).
+constexpr float kBrowserWidth = 480.0f;
 
 struct DirEntry {
   std::string name;
@@ -57,7 +63,7 @@ std::vector<DirEntry> list_directory(const fs::path& dir) {
 std::optional<std::string> render_directory_browser(fs::path& current_dir, bool& double_clicked) {
   std::optional<std::string> picked;
   double_clicked = false;
-  ImGui::BeginChild("dir_browser_list", ImVec2(480.0f, 320.0f), true);
+  ImGui::BeginChild("dir_browser_list", ImVec2(kBrowserWidth, 320.0f), true);
   if (current_dir != current_dir.root_path()) {
     if (ImGui::Selectable("..")) {
       current_dir = current_dir.parent_path();
@@ -78,6 +84,68 @@ std::optional<std::string> render_directory_browser(fs::path& current_dir, bool&
   }
   ImGui::EndChild();
   return picked;
+}
+
+// Fits `path` into max_width pixels (current ImGui font). Prefers keeping
+// the basename visible; inserts a Unicode ellipsis in the middle of the
+// directory prefix when the full string is too wide. If even the basename
+// overflows, end-ellipsizes it.
+std::string fit_path_display(const std::string& path, float max_width) {
+  if (path.empty() || ImGui::CalcTextSize(path.c_str()).x <= max_width) {
+    return path;
+  }
+
+  constexpr std::string_view kEllipsis = "…";
+  const float ellipsis_w = ImGui::CalcTextSize(kEllipsis.data(), kEllipsis.data() + kEllipsis.size()).x;
+
+  const auto slash = path.find_last_of('/');
+  const std::string basename = (slash == std::string::npos) ? path : path.substr(slash);
+  const std::string prefix = (slash == std::string::npos) ? std::string() : path.substr(0, slash);
+
+  const float base_w = ImGui::CalcTextSize(basename.c_str()).x;
+  if (base_w + ellipsis_w >= max_width) {
+    // Basename alone doesn't fit — keep a trailing fragment with leading ….
+    std::string out = std::string(kEllipsis);
+    for (size_t i = 0; i < basename.size(); ++i) {
+      std::string candidate = std::string(kEllipsis) + basename.substr(basename.size() - 1 - i);
+      if (ImGui::CalcTextSize(candidate.c_str()).x > max_width) {
+        break;
+      }
+      out = std::move(candidate);
+    }
+    return out;
+  }
+
+  const float avail = max_width - base_w - ellipsis_w;
+  if (prefix.empty() || avail <= 0.0f) {
+    return std::string(kEllipsis) + basename;
+  }
+
+  // Grow a leading prefix until one more character would overflow `avail`.
+  std::string head;
+  head.reserve(prefix.size());
+  for (char c : prefix) {
+    std::string next = head + c;
+    if (ImGui::CalcTextSize(next.c_str()).x > avail) {
+      break;
+    }
+    head = std::move(next);
+  }
+  if (head.empty()) {
+    return std::string(kEllipsis) + basename;
+  }
+  return head + std::string(kEllipsis) + basename;
+}
+
+// Current-directory label: truncated to the browser width, full path on
+// hover. Keeps AlwaysAutoResize modals from growing wider than the list.
+void render_current_dir_label(const fs::path& current_dir) {
+  const std::string full = current_dir.string();
+  const std::string shown = fit_path_display(full, kBrowserWidth);
+  ImGui::TextUnformatted(shown.c_str());
+  if (shown != full && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+    ImGui::SetTooltip("%s", full.c_str());
+  }
 }
 
 // The process cwd is meaningless for a GUI app launched from Finder or
@@ -130,7 +198,7 @@ void render_open_file_popup(Editor& ed) {
     initialized = true;
   }
 
-  ImGui::TextUnformatted(current_dir.string().c_str());
+  render_current_dir_label(current_dir);
   ImGui::Separator();
 
   bool double_clicked = false;
@@ -153,8 +221,13 @@ void render_open_file_popup(Editor& ed) {
   }
   ImGui::TextUnformatted("Path");
   ImGui::SameLine();
+  ImGui::PushItemWidth(kBrowserWidth - ImGui::CalcTextSize("Path ").x);
   bool confirmed = ImGui::InputText("##Path", path_buf.data(), path_buf.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue);
+  if (path_buf[0] != '\0' && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+    ImGui::SetTooltip("%s", path_buf.data());
+  }
+  ImGui::PopItemWidth();
   confirmed = ImGui::Button("Open") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
   bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
@@ -202,7 +275,7 @@ void render_save_as_popup(Editor& ed) {
     initialized = true;
   }
 
-  ImGui::TextUnformatted(current_dir.string().c_str());
+  render_current_dir_label(current_dir);
   ImGui::Separator();
 
   bool double_clicked = false;
@@ -219,8 +292,10 @@ void render_save_as_popup(Editor& ed) {
   }
   ImGui::TextUnformatted("Filename");
   ImGui::SameLine();
+  ImGui::PushItemWidth(kBrowserWidth - ImGui::CalcTextSize("Filename ").x);
   bool confirmed = ImGui::InputText("##Filename", filename_buf.data(), filename_buf.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue);
+  ImGui::PopItemWidth();
   confirmed = ImGui::Button("Save") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
   bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
@@ -267,7 +342,7 @@ void render_compare_with_popup(Editor& ed) {
     initialized = true;
   }
 
-  ImGui::TextUnformatted(current_dir.string().c_str());
+  render_current_dir_label(current_dir);
   ImGui::Separator();
 
   bool double_clicked = false;
@@ -282,8 +357,13 @@ void render_compare_with_popup(Editor& ed) {
   }
   ImGui::TextUnformatted("Path");
   ImGui::SameLine();
+  ImGui::PushItemWidth(kBrowserWidth - ImGui::CalcTextSize("Path ").x);
   bool confirmed = ImGui::InputText("##Path", path_buf.data(), path_buf.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue);
+  if (path_buf[0] != '\0' && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+    ImGui::SetTooltip("%s", path_buf.data());
+  }
+  ImGui::PopItemWidth();
   confirmed = ImGui::Button("Compare") || confirmed || confirmed_by_doubleclick;
   ImGui::SameLine();
   bool cancelled = ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape);
