@@ -94,7 +94,7 @@ ctest --test-dir build --output-on-failure
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.7.1`). Configure regenerates
+`CMakeLists.txt` (currently `1.7.2`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 

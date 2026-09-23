@@ -141,6 +141,13 @@ int main(int argc, char** argv) {
   glfwWindowHintString(GLFW_X11_CLASS_NAME, "zedit");
   glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "zedit");
 #endif
+#ifdef GLFW_WAYLAND_APP_ID
+  // WM_CLASS doesn't exist under native Wayland -- GNOME Shell (and other
+  // Wayland shells) match a running window to zedit.desktop via the
+  // xdg-shell app_id instead. Without this, the shell can't identify the
+  // window and falls back to a generic icon and "Unknown" name.
+  glfwWindowHintString(GLFW_WAYLAND_APP_ID, "zedit");
+#endif
 
   GLFWwindow* window = glfwCreateWindow(1280, 800, "zedit", nullptr, nullptr);
   if (window == nullptr) {
