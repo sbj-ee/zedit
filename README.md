@@ -23,7 +23,10 @@ over neovim's modal, keyboard-driven editing power.
   and keymaps via a small `zedit.*` API; `:lua <code>` runs Lua live as a
   scripting hook
 - GUI-editor shortcuts alongside the modal keybindings: Ctrl-A (select all),
-  Ctrl-C (copy), Ctrl-P (paste), Ctrl-S (save) — all work mid-Insert too
+  Ctrl-C (copy), Ctrl-P or Ctrl-V (paste), Ctrl-S (save) — all work mid-Insert too
+- System clipboard integration: yanks and cuts land on the desktop clipboard,
+  and text copied in other apps is what the next unnamed paste inserts
+  (like vim's `clipboard=unnamedplus`; named registers stay local)
 - Menu bar (File/Edit/View/Tools/Help): a directory-tree file browser and
   recent-files list for Open, Find and Replace, Tools > Sort Lines
 - Mouse-wheel scrolling, click-to-position, status bar (mode, cursor

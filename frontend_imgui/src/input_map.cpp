@@ -57,7 +57,11 @@ std::vector<zedit::core::KeyEvent> collect_key_events(ImGuiIO& io) {
   if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_A, true)) {
     events.push_back(KeyEvent{Key::CtrlA, 0});
   }
-  if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_P, true)) {
+  // Ctrl-V is an alias for Ctrl-P: it's the paste key every other app on
+  // the desktop uses, and zedit has no visual-block mode for it to clash
+  // with.
+  if (ctrl_held && (ImGui::IsKeyPressed(ImGuiKey_P, true) ||
+                    ImGui::IsKeyPressed(ImGuiKey_V, true))) {
     events.push_back(KeyEvent{Key::CtrlP, 0});
   }
   if (ctrl_held && ImGui::IsKeyPressed(ImGuiKey_C, true)) {

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -114,6 +115,7 @@ class Editor {
   const RegisterContent& unnamed_register() const { return unnamed_register_; }
   void set_unnamed_register(std::string text, bool linewise) {
     unnamed_register_ = RegisterContent{std::move(text), linewise};
+    push_unnamed_to_clipboard();
   }
   const RegisterContent& register_content(char name) const {
     if (name == 0) return unnamed_register_;
@@ -124,9 +126,51 @@ class Editor {
       set_unnamed_register(std::move(text), linewise);
       return;
     }
-    unnamed_register_ = RegisterContent{text, linewise};
-    named_registers_[static_cast<size_t>(name - 'a')] =
-        RegisterContent{std::move(text), linewise};
+    named_registers_[static_cast<size_t>(name - 'a')] = RegisterContent{text, linewise};
+    set_unnamed_register(std::move(text), linewise);
+  }
+
+  // Bridges the unnamed register to the desktop's system clipboard, like
+  // vim's clipboard=unnamedplus. Core stays platform-free: the frontend
+  // supplies read/write callbacks (GLFW via ImGui), and headless tests
+  // leave them unset or supply fakes. Every write to the unnamed register
+  // is pushed out through `write`; paste calls sync_unnamed_from_clipboard()
+  // first, so text copied in another app is what the next unnamed paste
+  // inserts. Named registers ("ap) never touch the clipboard.
+  struct ClipboardBridge {
+    std::function<std::optional<std::string>()> read;
+    std::function<void(const std::string&)> write;
+  };
+  void set_clipboard_bridge(ClipboardBridge bridge) { clipboard_ = std::move(bridge); }
+
+  // Adopts the system clipboard's text into the unnamed register if it
+  // changed since zedit last wrote or read it. Unchanged text (zedit's
+  // own yank round-tripping) keeps the register as-is, preserving its
+  // linewise flag; foreign text is linewise only if it ends in a newline,
+  // matching how vim treats the "+ register.
+  void sync_unnamed_from_clipboard() {
+    if (!clipboard_.read) return;
+    std::optional<std::string> text = clipboard_.read();
+    if (!text || text->empty() || *text == last_clipboard_text_) return;
+    last_clipboard_text_ = *text;
+    bool linewise = text->back() == '\n';
+    unnamed_register_ = RegisterContent{std::move(*text), linewise};
+  }
+
+  // Runs `fn` (an edit that deletes via the operator machinery) without
+  // it clobbering the unnamed register or the system clipboard -- for
+  // gedit style's type/paste-over-selection, where a GUI editor never
+  // treats the replaced text as copied.
+  template <typename Fn>
+  void preserving_unnamed_register(Fn&& fn) {
+    RegisterContent saved = unnamed_register_;
+    std::string saved_clipboard_text = last_clipboard_text_;
+    bool was_suppressed = clipboard_push_suppressed_;
+    clipboard_push_suppressed_ = true;
+    fn();
+    clipboard_push_suppressed_ = was_suppressed;
+    unnamed_register_ = std::move(saved);
+    last_clipboard_text_ = std::move(saved_clipboard_text);
   }
 
   // Each undo-able user action snapshots buffer + cursor state once via
@@ -296,6 +340,14 @@ class Editor {
   void start_visual_selection() { mode_sm_.start_visual_selection(*this); }
 
  private:
+  void push_unnamed_to_clipboard() {
+    if (!clipboard_.write || clipboard_push_suppressed_ || unnamed_register_.text.empty()) {
+      return;
+    }
+    last_clipboard_text_ = unnamed_register_.text;
+    clipboard_.write(last_clipboard_text_);
+  }
+
   struct UndoEntry {
     PieceTable::Snapshot buffer_snapshot;
     Cursor cursor;
@@ -343,6 +395,12 @@ class Editor {
   bool should_quit_ = false;
   RegisterContent unnamed_register_;
   std::array<RegisterContent, 26> named_registers_;
+  ClipboardBridge clipboard_;
+  // What zedit last put on (or took from) the system clipboard, so a
+  // paste can tell "someone else copied something" from "that's still
+  // our own yank" without asking the clipboard for a MIME-level owner.
+  std::string last_clipboard_text_;
+  bool clipboard_push_suppressed_ = false;
   std::string last_search_pattern_;
   bool last_search_forward_ = true;
   // Boxed for the same reason JsonRpcTransport is boxed inside LspManager:
