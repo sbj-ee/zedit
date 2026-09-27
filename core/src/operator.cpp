@@ -114,6 +114,9 @@ void execute_delete_char(int count, Editor& ed, char register_name) {
 }
 
 void execute_paste(bool before, int count, Editor& ed, char register_name) {
+  if (register_name == 0) {
+    ed.sync_unnamed_from_clipboard();
+  }
   const RegisterContent& reg = ed.register_content(register_name);
   if (reg.text.empty()) {
     return;

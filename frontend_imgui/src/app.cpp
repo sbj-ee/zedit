@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -14,7 +15,18 @@
 namespace zedit::frontend {
 
 App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
-    : editor_(std::move(editor)), font_(font), icon_texture_(icon_texture) {}
+    : editor_(std::move(editor)), font_(font), icon_texture_(icon_texture) {
+  // ImGui's GLFW backend already routes these to glfwGet/SetClipboardString
+  // (Wayland data-device or X11 CLIPBOARD, whichever GLFW is running on).
+  editor_.set_clipboard_bridge(zedit::core::Editor::ClipboardBridge{
+      []() -> std::optional<std::string> {
+        const char* text = ImGui::GetClipboardText();
+        if (text == nullptr) return std::nullopt;
+        return std::string(text);
+      },
+      [](const std::string& text) { ImGui::SetClipboardText(text.c_str()); },
+  });
+}
 
 void App::render_frame(ImGuiIO& io, UpdateChecker& update_checker) {
   editor_.poll_lsp();

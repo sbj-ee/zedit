@@ -363,7 +363,12 @@ KeyResult ModeStateMachine::handle_gedit_key(KeyEvent ev, Editor& ed) {
       // "select all, type X" into "\nX" instead of "X". Delete has no
       // such placeholder for either linewise or charwise selections, so
       // it's the clean "remove exactly this, nothing more" this needs.
-      finish_operator_on_visual_selection(OperatorKind::Delete, ed);
+      // The register (and so the system clipboard) is left untouched, as
+      // in any GUI editor: replacing a selection isn't copying it, and
+      // Ctrl-P over a selection must paste what was copied, not the text
+      // it's replacing.
+      ed.preserving_unnamed_register(
+          [&] { finish_operator_on_visual_selection(OperatorKind::Delete, ed); });
       mode_ = Mode::Insert;
       if (ev.key == Key::Backspace) {
         return KeyResult{};  // Backspace alone just removes the selection, nothing more
@@ -783,6 +788,7 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
     // on its own line below), this splices the register's raw text in at
     // the cursor, matching how paste behaves inside a text field in any
     // GUI editor -- you're mid-sentence, not placing a whole line.
+    ed.sync_unnamed_from_clipboard();
     for (char c : ed.unnamed_register().text) {
       ed.insert_char(c);
       insert_session_text_.push_back(c);

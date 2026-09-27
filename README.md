@@ -23,7 +23,10 @@ over neovim's modal, keyboard-driven editing power.
   and keymaps via a small `zedit.*` API; `:lua <code>` runs Lua live as a
   scripting hook
 - GUI-editor shortcuts alongside the modal keybindings: Ctrl-A (select all),
-  Ctrl-C (copy), Ctrl-P (paste), Ctrl-S (save) — all work mid-Insert too
+  Ctrl-C (copy), Ctrl-P or Ctrl-V (paste), Ctrl-S (save) — all work mid-Insert too
+- System clipboard integration: yanks and cuts land on the desktop clipboard,
+  and text copied in other apps is what the next unnamed paste inserts
+  (like vim's `clipboard=unnamedplus`; named registers stay local)
 - Menu bar (File/Edit/View/Tools/Help): a directory-tree file browser and
   recent-files list for Open, Find and Replace, Tools > Sort Lines
 - Mouse-wheel scrolling, click-to-position, status bar (mode, cursor
@@ -49,17 +52,17 @@ LSP, and the Lua config system. Actively growing from there.
 **Linux (.deb):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.7.1-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.7.1/zedit-1.7.1-Linux-amd64.deb))
+[zedit-1.7.2-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.7.2/zedit-1.7.2-Linux-amd64.deb))
 and install with:
 
 ```sh
-sudo dpkg -i zedit-1.7.1-Linux-amd64.deb
+sudo dpkg -i zedit-1.7.2-Linux-amd64.deb
 ```
 
 **macOS (.dmg, Apple Silicon only):** download the latest release from
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
 (currently
-[zedit-1.7.1-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.1/zedit-1.7.1-Darwin.dmg)),
+[zedit-1.7.2-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.2/zedit-1.7.2-Darwin.dmg)),
 open it, and drag `ze.app` to Applications.
 
 The CI `.dmg` is **unsigned**. After a Safari (or browser) download, Gatekeeper
