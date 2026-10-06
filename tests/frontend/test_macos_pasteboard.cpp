@@ -74,10 +74,14 @@ TEST_CASE("macOS: RTF-only pasteboard reads back as plain text", "[clipboard][ma
   rtf_only.rtf = "{\\rtf1\\ansi{\\fonttbl\\f0 Helvetica;}\\f0 Caf\\'e9\\par second line}";
   write_macos_pasteboard(pb.name, rtf_only);
   REQUIRE(macos_pasteboard_has_type(pb.name, "public.rtf"));
-  REQUIRE_FALSE(macos_pasteboard_has_type(pb.name, std::string(kPlainUti)));
-
+  // Unlike HTML, macOS itself synthesizes a public.utf8-plain-text flavor
+  // from public.rtf (observed on the macos-14 CI runner), so an RTF-only
+  // copy was already readable through GLFW on macOS. Whichever flavor
+  // wins, the result must be the plain text, and zedit's own RTF
+  // conversion must agree with it.
   ClipboardFlavors read = read_macos_pasteboard(pb.name);
   REQUIRE(read.rtf.has_value());
+  REQUIRE(zedit::core::rtf_to_plain_text(*read.rtf) == "Caf\xC3\xA9\nsecond line");
   REQUIRE(clipboard_plain_text(read) == std::string("Caf\xC3\xA9\nsecond line"));
 }
 
