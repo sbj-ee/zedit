@@ -22,6 +22,14 @@ endif()
 # use PROJECT_VERSION.
 project(zedit VERSION 1.7.2 LANGUAGES CXX C)
 
+# macOS reads the clipboard through NSPasteboard directly
+# (frontend_imgui/src/macos_pasteboard.mm), so Objective-C++ is needed
+# there. Enabled here at the top level because both the app and the test
+# executable link it.
+if(APPLE)
+  enable_language(OBJCXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

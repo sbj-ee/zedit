@@ -29,6 +29,7 @@ add_library(zedit_core STATIC
   src/fuzzy_match.cpp
   src/git_diff.cpp
   src/recovery.cpp
+  src/clipboard_text.cpp
 )
 
 target_include_directories(zedit_core PUBLIC

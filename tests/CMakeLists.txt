@@ -41,6 +41,7 @@ add_executable(zedit_tests
   core/test_gedit_style.cpp
   core/test_recovery.cpp
   core/test_system_clipboard.cpp
+  core/test_clipboard_text.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
@@ -48,6 +49,13 @@ target_link_libraries(zedit_tests PRIVATE
   Catch2::Catch2WithMain
   zedit_warnings
 )
+
+# Real-NSPasteboard round trips for the macOS clipboard reader (see
+# frontend_imgui/src/macos_pasteboard.mm).
+if(APPLE)
+  target_sources(zedit_tests PRIVATE frontend/test_macos_pasteboard.cpp)
+  target_link_libraries(zedit_tests PRIVATE zedit_macos_pasteboard)
+endif()
 
 include(CTest)
 include(Catch)
