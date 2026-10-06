@@ -154,6 +154,16 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Edit")) {
+      // Paste is enabled exactly when the paste itself would insert
+      // something: Editor::can_paste() asks the same clipboard read (and
+      // plain-text conversion of HTML/RTF-only copies) that Ctrl-P/Ctrl-V
+      // use. Checked once each time the menu opens, like a native menu's
+      // item validation, rather than hitting the system clipboard (an X11
+      // round trip on Linux) every frame the menu stays open.
+      static bool paste_enabled = true;
+      if (ImGui::IsWindowAppearing()) {
+        paste_enabled = ed.can_paste();
+      }
       if (ImGui::MenuItem("Undo", "u")) {
         ed.undo();
       }
@@ -171,7 +181,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       if (ImGui::MenuItem("Copy", "Ctrl+C")) {
         ed.handle_key(KeyEvent{Key::CtrlC, 0});
       }
-      if (ImGui::MenuItem("Paste", "Ctrl+P")) {
+      if (ImGui::MenuItem("Paste", "Ctrl+P", false, paste_enabled)) {
         ed.handle_key(KeyEvent{Key::CtrlP, 0});
       }
       ImGui::Separator();

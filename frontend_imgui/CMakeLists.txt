@@ -6,6 +6,20 @@ zedit_embed_binary(
   kZeditIconPng
 )
 
+# macOS clipboard reads go through NSPasteboard instead of GLFW, whose
+# glfwGetClipboardString() only accepts plain text and returns NULL for an
+# HTML-only or RTF-only copy (so paste silently did nothing). Its own small
+# library so the test suite can exercise it against a real pasteboard.
+if(APPLE)
+  add_library(zedit_macos_pasteboard STATIC src/macos_pasteboard.mm)
+  set_source_files_properties(src/macos_pasteboard.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  target_include_directories(zedit_macos_pasteboard PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  target_link_libraries(zedit_macos_pasteboard
+    PUBLIC zedit_core
+    PRIVATE zedit_warnings "-framework AppKit"
+  )
+endif()
+
 add_executable(zedit
   src/main.cpp
   src/app.cpp
@@ -31,6 +45,9 @@ target_link_libraries(zedit PRIVATE
   stb_image
   zedit_warnings
 )
+if(APPLE)
+  target_link_libraries(zedit PRIVATE zedit_macos_pasteboard)
+endif()
 
 set_target_properties(zedit PROPERTIES OUTPUT_NAME ze)
 

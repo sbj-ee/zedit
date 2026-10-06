@@ -26,7 +26,9 @@ over neovim's modal, keyboard-driven editing power.
   Ctrl-C (copy), Ctrl-P or Ctrl-V (paste), Ctrl-S (save) — all work mid-Insert too
 - System clipboard integration: yanks and cuts land on the desktop clipboard,
   and text copied in other apps is what the next unnamed paste inserts
-  (like vim's `clipboard=unnamedplus`; named registers stay local)
+  (like vim's `clipboard=unnamedplus`; named registers stay local). Paste
+  always inserts plain text: on macOS, copies that carry only HTML or RTF
+  (some Electron/Chromium and Mac apps) are converted to plain text
 - Menu bar (File/Edit/View/Tools/Help): a directory-tree file browser and
   recent-files list for Open, Find and Replace, Tools > Sort Lines
 - Mouse-wheel scrolling, click-to-position, status bar (mode, cursor

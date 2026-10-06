@@ -132,7 +132,9 @@ class Editor {
 
   // Bridges the unnamed register to the desktop's system clipboard, like
   // vim's clipboard=unnamedplus. Core stays platform-free: the frontend
-  // supplies read/write callbacks (GLFW via ImGui), and headless tests
+  // supplies read/write callbacks (GLFW via ImGui; on macOS reads go
+  // through NSPasteboard so HTML/RTF-only copies still paste as plain text,
+  // see clipboard_text.hpp), and headless tests
   // leave them unset or supply fakes. Every write to the unnamed register
   // is pushed out through `write`; paste calls sync_unnamed_from_clipboard()
   // first, so text copied in another app is what the next unnamed paste
@@ -155,6 +157,20 @@ class Editor {
     last_clipboard_text_ = *text;
     bool linewise = text->back() == '\n';
     unnamed_register_ = RegisterContent{std::move(*text), linewise};
+  }
+
+  // Whether an unnamed paste (p, Ctrl-P/Ctrl-V, Edit > Paste) would insert
+  // anything: the clipboard bridge offers non-empty text, or the unnamed
+  // register holds zedit's own last yank. Asks the bridge's same `read`
+  // that sync_unnamed_from_clipboard() uses, so Edit > Paste's enabled state
+  // and the paste key can't disagree about what's on the clipboard. Doesn't
+  // adopt the clipboard text into the register.
+  bool can_paste() const {
+    if (clipboard_.read) {
+      std::optional<std::string> text = clipboard_.read();
+      if (text && !text->empty()) return true;
+    }
+    return !unnamed_register_.text.empty();
   }
 
   // Runs `fn` (an edit that deletes via the operator machinery) without

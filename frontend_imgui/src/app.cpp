@@ -6,7 +6,12 @@
 #include <string>
 #include <utility>
 
+#include "zedit/core/clipboard_text.hpp"
+
 #include "input_map.hpp"
+#ifdef __APPLE__
+#include "macos_pasteboard.hpp"
+#endif
 #include "menu_bar.hpp"
 #include "recent_files.hpp"
 #include "status_line.hpp"
@@ -16,13 +21,27 @@ namespace zedit::frontend {
 
 App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
     : editor_(std::move(editor)), font_(font), icon_texture_(icon_texture) {
-  // ImGui's GLFW backend already routes these to glfwGet/SetClipboardString
-  // (Wayland data-device or X11 CLIPBOARD, whichever GLFW is running on).
+  // Writes go through ImGui's GLFW backend (glfwSetClipboardString:
+  // Wayland data-device, X11 CLIPBOARD, or NSPasteboard plain text).
+  //
+  // Reads always produce plain text. On macOS they go straight to
+  // NSPasteboard, because glfwGetClipboardString() only accepts
+  // public.utf8-plain-text and returns NULL when a copy offers just HTML
+  // (some Electron/Chromium paths) or just RTF (some Mac apps) -- which made
+  // paste silently do nothing. read_macos_clipboard_text() converts those
+  // flavors to plain text instead. Elsewhere GLFW only exposes the
+  // plain-text flavor, which still goes through the same normalization.
   editor_.set_clipboard_bridge(zedit::core::Editor::ClipboardBridge{
       []() -> std::optional<std::string> {
+#ifdef __APPLE__
+        return read_macos_clipboard_text();
+#else
         const char* text = ImGui::GetClipboardText();
         if (text == nullptr) return std::nullopt;
-        return std::string(text);
+        zedit::core::ClipboardFlavors flavors;
+        flavors.plain_text = std::string(text);
+        return zedit::core::clipboard_plain_text(flavors);
+#endif
       },
       [](const std::string& text) { ImGui::SetClipboardText(text.c_str()); },
   });
