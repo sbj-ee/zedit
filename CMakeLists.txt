@@ -20,7 +20,7 @@ endif()
 # core/ generates include/zedit/core/version.hpp from these numbers
 # (About dialog, update check, tests). CPack and macOS bundle already
 # use PROJECT_VERSION.
-project(zedit VERSION 1.7.3 LANGUAGES CXX C)
+project(zedit VERSION 1.7.4 LANGUAGES CXX C)
 
 # macOS reads the clipboard through NSPasteboard directly
 # (frontend_imgui/src/macos_pasteboard.mm), so Objective-C++ is needed
