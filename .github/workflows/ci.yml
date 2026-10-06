@@ -88,8 +88,9 @@ jobs:
           # through the editor exactly as Cmd-V does. Run on its own so the
           # log shows it ran; Catch2 exits non-zero if it was skipped.
           ./build/tests/zedit_tests "[real-clipboard]" --durations yes
-          # What the test left on the pasteboard (an RTF-only copy), as
-          # macOS itself sees it -- no plain-text flavor.
+          # What the test left on the general pasteboard, as macOS itself
+          # sees it: HTML only, no plain-text flavor (which is all GLFW's
+          # glfwGetClipboardString() accepts).
           osascript -e 'clipboard info' || true
 
       - name: Package .dmg

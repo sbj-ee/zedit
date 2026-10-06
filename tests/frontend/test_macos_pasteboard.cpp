@@ -124,9 +124,15 @@ TEST_CASE("macOS: HTML-only data on the real system clipboard pastes into the ed
   ed.handle_key(KeyEvent{Key::CtrlP, 0});  // Cmd-V / Edit > Paste
   REQUIRE(ed.buffer().to_string() == kChatText);
 
-  // A later copy is picked up (the changeCount cache invalidates).
+  // A later copy is picked up (the changeCount cache invalidates)...
   ClipboardFlavors rtf_only;
   rtf_only.rtf = "{\\rtf1\\ansi second copy}";
   write_macos_pasteboard({}, rtf_only);
   REQUIRE(read_macos_clipboard_text() == std::string("second copy"));
+
+  // ...and so is copying the HTML again, which also leaves the HTML-only
+  // pasteboard behind for CI to show with `osascript -e 'clipboard info'`.
+  write_macos_pasteboard({}, html_only);
+  REQUIRE_FALSE(macos_pasteboard_has_type({}, std::string(kPlainUti)));
+  REQUIRE(read_macos_clipboard_text() == std::string(kChatText));
 }
