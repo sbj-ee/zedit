@@ -11,6 +11,8 @@
 #include "input_map.hpp"
 #ifdef __APPLE__
 #include "macos_pasteboard.hpp"
+#elif defined(__linux__)
+#include "linux_clipboard.hpp"
 #endif
 #include "menu_bar.hpp"
 #include "recent_files.hpp"
@@ -24,17 +26,36 @@ App::App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture)
   // Writes go through ImGui's GLFW backend (glfwSetClipboardString:
   // Wayland data-device, X11 CLIPBOARD, or NSPasteboard plain text).
   //
-  // Reads always produce plain text. On macOS they go straight to
-  // NSPasteboard, because glfwGetClipboardString() only accepts
-  // public.utf8-plain-text and returns NULL when a copy offers just HTML
-  // (some Electron/Chromium paths) or just RTF (some Mac apps) -- which made
-  // paste silently do nothing. read_macos_clipboard_text() converts those
-  // flavors to plain text instead. Elsewhere GLFW only exposes the
-  // plain-text flavor, which still goes through the same normalization.
+  // Reads always produce plain text. glfwGetClipboardString() only ever
+  // asks for plain text, so a copy offering just HTML (some
+  // Electron/Chromium paths) or just RTF (some Mac apps) made paste
+  // silently do nothing. Instead, on macOS reads go straight to
+  // NSPasteboard (read_macos_clipboard_text()); on Linux they go through
+  // read_linux_clipboard_text() -- zedit's own X11 CLIPBOARD reader, or
+  // wl-paste on Wayland -- which converts those flavors to plain text by
+  // the same rule. Elsewhere GLFW's plain-text read goes through the same
+  // normalization.
+#if defined(__linux__) && !defined(__APPLE__)
+  // Every clipboard write zedit makes -- the editor's yanks through the
+  // bridge below and Ctrl-C in ImGui text fields alike -- goes through
+  // ImGui's GLFW setter. Wrapped (not replaced) so the X11 reader can tell
+  // when zedit itself owns the clipboard; see note_linux_clipboard_write().
+  static void (*glfw_set_clipboard)(ImGuiContext*, const char*) = nullptr;
+  ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+  if (platform_io.Platform_SetClipboardTextFn != nullptr && glfw_set_clipboard == nullptr) {
+    glfw_set_clipboard = platform_io.Platform_SetClipboardTextFn;
+    platform_io.Platform_SetClipboardTextFn = [](ImGuiContext* ctx, const char* text) {
+      glfw_set_clipboard(ctx, text);
+      note_linux_clipboard_write();
+    };
+  }
+#endif
   editor_.set_clipboard_bridge(zedit::core::Editor::ClipboardBridge{
       []() -> std::optional<std::string> {
 #ifdef __APPLE__
         return read_macos_clipboard_text();
+#elif defined(__linux__)
+        return read_linux_clipboard_text();
 #else
         const char* text = ImGui::GetClipboardText();
         if (text == nullptr) return std::nullopt;

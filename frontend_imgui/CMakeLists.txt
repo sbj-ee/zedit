@@ -20,6 +20,34 @@ if(APPLE)
   )
 endif()
 
+# Linux clipboard reads go through zedit's own X11 CLIPBOARD reader (or
+# wl-paste on Wayland) instead of only glfwGetClipboardString(), which asks
+# for nothing but plain text and returned NULL for an HTML-only or RTF-only
+# copy. See src/linux_clipboard.hpp. Its own small library so the test
+# suite can exercise it against real X11/Wayland clipboards.
+if(UNIX AND NOT APPLE)
+  add_library(zedit_linux_clipboard STATIC
+    src/linux_clipboard.cpp
+    src/wl_paste_clipboard.cpp
+  )
+  target_include_directories(zedit_linux_clipboard PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+  target_link_libraries(zedit_linux_clipboard
+    PUBLIC zedit_core glfw
+    PRIVATE zedit_warnings
+  )
+  # Only Xlib's *headers* are needed: like GLFW 3.4, the reader dlopen()s
+  # libX11.so.6 at runtime, so the binary (and the .deb) gain no hard
+  # libX11 dependency. GLFW's X11 backend already requires the same
+  # headers (libx11-dev), so this adds no build dependency either.
+  if(GLFW_BUILD_X11)
+    find_package(X11 REQUIRED)
+    target_sources(zedit_linux_clipboard PRIVATE src/x11_clipboard.cpp)
+    target_include_directories(zedit_linux_clipboard PRIVATE ${X11_INCLUDE_DIR})
+    target_compile_definitions(zedit_linux_clipboard PUBLIC ZEDIT_HAVE_X11_CLIPBOARD)
+    target_link_libraries(zedit_linux_clipboard PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+endif()
+
 add_executable(zedit
   src/main.cpp
   src/app.cpp
@@ -47,6 +75,8 @@ target_link_libraries(zedit PRIVATE
 )
 if(APPLE)
   target_link_libraries(zedit PRIVATE zedit_macos_pasteboard)
+elseif(UNIX)
+  target_link_libraries(zedit PRIVATE zedit_linux_clipboard)
 endif()
 
 set_target_properties(zedit PROPERTIES OUTPUT_NAME ze)
