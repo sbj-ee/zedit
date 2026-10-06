@@ -88,15 +88,7 @@ jobs:
           # And through the real app: HTML-only copy, then i + Ctrl-V +
           # Escape + Ctrl-S in a running ze window; checks the saved file.
           xvfb-run -a -s "-screen 0 1600x1000x24" \
-            tests/e2e/x11_paste_e2e.sh build/frontend_imgui/ze x11-paste-e2e.png
-
-      - name: Upload X11 paste screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-x11-paste-e2e
-          path: x11-paste-e2e.png
-          if-no-files-found: warn
+            tests/e2e/x11_paste_e2e.sh build/frontend_imgui/ze
 
       - name: Paste check on the real Wayland clipboard (headless sway)
         env:
