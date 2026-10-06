@@ -42,6 +42,7 @@ add_executable(zedit_tests
   core/test_recovery.cpp
   core/test_system_clipboard.cpp
   core/test_clipboard_text.cpp
+  core/test_clipboard_source.cpp
 )
 
 target_link_libraries(zedit_tests PRIVATE
@@ -55,6 +56,53 @@ target_link_libraries(zedit_tests PRIVATE
 if(APPLE)
   target_sources(zedit_tests PRIVATE frontend/test_macos_pasteboard.cpp)
   target_link_libraries(zedit_tests PRIVATE zedit_macos_pasteboard)
+endif()
+
+# Linux clipboard readers (frontend_imgui/src/linux_clipboard.cpp): fake
+# wl-paste scripts always; the real X11 CLIPBOARD and Wayland clipboard
+# only with ZEDIT_TEST_REAL_CLIPBOARD=1 (see the test file).
+if(UNIX AND NOT APPLE AND TARGET zedit_linux_clipboard AND GLFW_BUILD_X11)
+  target_sources(zedit_tests PRIVATE frontend/test_linux_clipboard.cpp frontend/x11_test_owner.cpp)
+  # The tests link libX11 directly (unlike zedit, which dlopen()s it) to
+  # play an X11 clipboard owner that never answers.
+  find_package(X11 REQUIRED)
+  target_link_libraries(zedit_tests PRIVATE zedit_linux_clipboard X11::X11)
+
+  # Wayland clipboard owner for the real-clipboard tests: offers exactly
+  # the given MIME types via wlr-data-control (wl-copy can't make an
+  # HTML-only clipboard; see tests/helpers/wl_clipboard_owner.cpp).
+  # Test-only; built when wayland-client and wayland-scanner are present
+  # (GLFW's Wayland backend needs both anyway).
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(ZEDIT_WAYLAND_CLIENT QUIET IMPORTED_TARGET wayland-client)
+  endif()
+  find_program(ZEDIT_WAYLAND_SCANNER wayland-scanner)
+  if(ZEDIT_WAYLAND_CLIENT_FOUND AND ZEDIT_WAYLAND_SCANNER)
+    set(_wl_xml ${CMAKE_CURRENT_SOURCE_DIR}/third_party/wlr-data-control-unstable-v1.xml)
+    set(_wl_gen ${CMAKE_CURRENT_BINARY_DIR}/wayland-generated)
+    file(MAKE_DIRECTORY ${_wl_gen})
+    add_custom_command(
+      OUTPUT ${_wl_gen}/wlr-data-control-unstable-v1-client-protocol.h
+             ${_wl_gen}/wlr-data-control-unstable-v1-protocol.c
+      COMMAND ${ZEDIT_WAYLAND_SCANNER} client-header ${_wl_xml}
+              ${_wl_gen}/wlr-data-control-unstable-v1-client-protocol.h
+      COMMAND ${ZEDIT_WAYLAND_SCANNER} private-code ${_wl_xml}
+              ${_wl_gen}/wlr-data-control-unstable-v1-protocol.c
+      DEPENDS ${_wl_xml}
+      VERBATIM
+    )
+    add_executable(zedit_wl_clipboard_owner
+      helpers/wl_clipboard_owner.cpp
+      ${_wl_gen}/wlr-data-control-unstable-v1-client-protocol.h
+      ${_wl_gen}/wlr-data-control-unstable-v1-protocol.c
+    )
+    target_include_directories(zedit_wl_clipboard_owner PRIVATE ${_wl_gen})
+    target_link_libraries(zedit_wl_clipboard_owner PRIVATE PkgConfig::ZEDIT_WAYLAND_CLIENT)
+    add_dependencies(zedit_tests zedit_wl_clipboard_owner)
+    target_compile_definitions(zedit_tests PRIVATE
+      ZEDIT_WL_OWNER_HELPER="$<TARGET_FILE:zedit_wl_clipboard_owner>")
+  endif()
 endif()
 
 include(CTest)

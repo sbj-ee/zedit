@@ -27,8 +27,11 @@ over neovim's modal, keyboard-driven editing power.
 - System clipboard integration: yanks and cuts land on the desktop clipboard,
   and text copied in other apps is what the next unnamed paste inserts
   (like vim's `clipboard=unnamedplus`; named registers stay local). Paste
-  always inserts plain text: on macOS, copies that carry only HTML or RTF
-  (some Electron/Chromium and Mac apps) are converted to plain text
+  always inserts plain text: copies that carry only HTML or RTF (some
+  Electron/Chromium and Mac apps) are converted to plain text, on macOS and
+  on Linux (X11 and Wayland). On Wayland this uses `wl-paste` from
+  [wl-clipboard](https://github.com/bugaevc/wl-clipboard) when installed
+  (the `.deb` recommends it); without it, Wayland pastes plain text only
 - Menu bar (File/Edit/View/Tools/Help): a directory-tree file browser and
   recent-files list for Open, Find and Replace, Tools > Sort Lines
 - Mouse-wheel scrolling, click-to-position, status bar (mode, cursor
@@ -95,6 +98,12 @@ cmake --build build
 cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
+
+Tests tagged `[real-clipboard]` overwrite the desktop clipboard, so they are
+skipped unless `ZEDIT_TEST_REAL_CLIPBOARD=1`. On Linux the `[x11]` ones need
+`$DISPLAY` and `xclip` (e.g. under `xvfb-run -a`); the `[wayland]` ones need
+`$WAYLAND_DISPLAY` from a wlr-data-control compositor (e.g. headless sway, as
+CI does) and `wl-paste`.
 
 ## Version bumps
 

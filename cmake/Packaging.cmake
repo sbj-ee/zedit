@@ -39,6 +39,11 @@ if(UNIX AND NOT APPLE)
   # the built binary with dpkg-shlibdeps, rather than hand-listing them
   # and risking it drifting out of sync with what's actually linked.
   set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+  # Optional: on Wayland, pasting a copy that offers only HTML/RTF (no plain
+  # text) reads those types through wl-paste (frontend_imgui/src/
+  # linux_clipboard.hpp). Without it zedit still runs and pastes plain text.
+  # X11 needs nothing extra (libX11 is loaded at runtime, as GLFW does).
+  set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "wl-clipboard")
 
   # Installed layout matches the README's manual "optional install"
   # instructions (see assets/linux/zedit.desktop) -- packaging just

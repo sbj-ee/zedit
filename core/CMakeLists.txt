@@ -30,6 +30,7 @@ add_library(zedit_core STATIC
   src/git_diff.cpp
   src/recovery.cpp
   src/clipboard_text.cpp
+  src/clipboard_source.cpp
 )
 
 target_include_directories(zedit_core PUBLIC

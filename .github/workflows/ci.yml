@@ -27,7 +27,14 @@ jobs:
             libgl1-mesa-dev \
             libx11-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev \
             libwayland-dev libxkbcommon-dev \
-            dpkg-dev
+            dpkg-dev \
+            xvfb xauth xclip xdotool libgl1-mesa-dri \
+            sway wl-clipboard
+          # xvfb/xclip: real X11 CLIPBOARD for the [real-clipboard][x11]
+          # tests; xdotool + Mesa (llvmpipe) to drive the real ze window in
+          # tests/e2e/x11_paste_e2e.sh. sway (headless) + wl-clipboard: a
+          # real Wayland clipboard with wlr-data-control for the
+          # [real-clipboard][wayland] tests.
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -35,14 +42,77 @@ jobs:
       - name: Build
         run: cmake --build build
 
+      - name: Start headless Wayland compositor (sway)
+        run: |
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/xdg"
+          mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+          printf 'xwayland disable\n' > "$RUNNER_TEMP/sway.conf"
+          WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1 \
+            nohup sway -c "$RUNNER_TEMP/sway.conf" > "$RUNNER_TEMP/sway.log" 2>&1 &
+          for _ in $(seq 50); do
+            [ -S "$XDG_RUNTIME_DIR/wayland-1" ] && break
+            sleep 0.2
+          done
+          ls -la "$XDG_RUNTIME_DIR"
+          test -S "$XDG_RUNTIME_DIR/wayland-1" || { cat "$RUNNER_TEMP/sway.log"; exit 1; }
+          # Only the test steps get these (not the build), via env: below.
+          echo "ZEDIT_XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
+
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        env:
+          # Lets the [real-clipboard] cases in tests/frontend/test_linux_clipboard.cpp
+          # use the real X11 CLIPBOARD (Xvfb) and Wayland clipboard (sway)
+          # instead of skipping.
+          ZEDIT_TEST_REAL_CLIPBOARD: "1"
+        run: |
+          XDG_RUNTIME_DIR="$ZEDIT_XDG_RUNTIME_DIR" WAYLAND_DISPLAY=wayland-1 \
+            xvfb-run -a ctest --test-dir build --output-on-failure
+
+      - name: Paste check on the real X11 clipboard (Xvfb)
+        env:
+          ZEDIT_TEST_REAL_CLIPBOARD: "1"
+        run: |
+          # Puts HTML-only (and RTF-only, and 4+ MB INCR) data on the real
+          # X11 CLIPBOARD with xclip, plus a hung owner, and pastes through
+          # the editor exactly as App does. Run on its own so the log shows
+          # it ran; Catch2 exits non-zero if every case was skipped.
+          xvfb-run -a sh -ec '
+            ./build/tests/zedit_tests "[real-clipboard][x11]" --durations yes
+            # What an HTML-only copy offers, as any X11 client sees it:
+            # TARGETS + text/html, no UTF8_STRING/STRING (all GLFW asks for).
+            printf "<ol><li>Run <code>make</code></li></ol>" |
+              xclip -selection clipboard -t text/html -i
+            echo "CLIPBOARD TARGETS:"; xclip -selection clipboard -o -t TARGETS | tee targets.txt
+            ! grep -qx -e UTF8_STRING -e STRING -e "text/plain.*" targets.txt
+          '
+          # And through the real app: HTML-only copy, then i + Ctrl-V +
+          # Escape + Ctrl-S in a running ze window; checks the saved file.
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            tests/e2e/x11_paste_e2e.sh build/frontend_imgui/ze
+
+      - name: Paste check on the real Wayland clipboard (headless sway)
+        env:
+          ZEDIT_TEST_REAL_CLIPBOARD: "1"
+        run: |
+          export XDG_RUNTIME_DIR="$ZEDIT_XDG_RUNTIME_DIR" WAYLAND_DISPLAY=wayland-1
+          unset DISPLAY
+          # Same through wl-paste on a real compositor. HTML-only data comes
+          # from tests/helpers/wl_clipboard_owner.cpp, since wl-copy adds
+          # text/plain aliases to any text/* type.
+          ./build/tests/zedit_tests "[real-clipboard][wayland]" --durations yes
+          printf '<ol><li>Run <code>make</code></li></ol>' > "$RUNNER_TEMP/clip.html"
+          ./build/tests/zedit_wl_clipboard_owner "text/html=$RUNNER_TEMP/clip.html" > "$RUNNER_TEMP/owner.out" &
+          owner=$!
+          for _ in $(seq 50); do grep -q ready "$RUNNER_TEMP/owner.out" && break; sleep 0.1; done
+          echo "wl-paste --list-types:"; wl-paste --list-types
+          kill "$owner"
 
       - name: Package .deb
         run: |
           cd build
           cpack -G DEB
           ls -la *.deb
+          dpkg-deb -f ./*.deb Depends Recommends
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
