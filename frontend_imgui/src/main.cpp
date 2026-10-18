@@ -18,16 +18,22 @@
 #pragma GCC diagnostic pop
 #endif
 
+#include <unistd.h>
+
 #include <cstdio>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "app.hpp"
 #include "font_manager.hpp"
 #include "theme.hpp"
-#include "update_checker.hpp"
+#include "update_ui.hpp"
 #include "zedit/core/config.hpp"
 #include "zedit/core/editor.hpp"
 #include "zedit/core/file_io.hpp"
+#include "zedit/core/update.hpp"
+#include "zedit/core/update_service.hpp"
 #include "zedit/core/version.hpp"
 #include "zedit_icon.hpp"
 
@@ -180,11 +186,14 @@ int main(int argc, char** argv) {
   apply_config(editor);
   zedit::frontend::App app(std::move(editor), font, icon_texture);
 
-  // A plain main()-local, never moved -- see update_checker.hpp for why
-  // that matters (a moved owner would dangle the background thread's
-  // captured `this`).
-  zedit::frontend::UpdateChecker update_checker;
-  update_checker.start_check(zedit::core::version_string());
+  // A plain main()-local, never moved -- see update_ui.hpp for why that
+  // matters (a moved owner would dangle the background thread's captured
+  // pointers). The startup check is quiet and at most once a day; Help >
+  // Check for Updates is the manual one.
+  zedit::core::UpdateConfig update_config;
+  update_config.current_version = zedit::core::version_string();
+  zedit::frontend::UpdateUi update_ui(update_config, zedit::core::UpdateState::default_path());
+  update_ui.start_startup_check();
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -193,7 +202,7 @@ int main(int argc, char** argv) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    app.render_frame(io, update_checker);
+    app.render_frame(io, update_ui);
     if (app.should_close()) {
       glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
@@ -214,7 +223,25 @@ int main(int argc, char** argv) {
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
+  // After an in-app update, "Restart Now" re-executes the installed binary
+  // (reopening the current file) once the window is gone.
+  const bool restart = update_ui.restart_requested();
+  const std::string restart_binary = update_ui.restart_binary();
+  const std::string restart_file = app.current_filename();
+
   glfwDestroyWindow(window);
   glfwTerminate();
+
+  if (restart) {
+    std::vector<char*> args;
+    args.push_back(const_cast<char*>(restart_binary.c_str()));
+    if (!restart_file.empty()) {
+      args.push_back(const_cast<char*>(restart_file.c_str()));
+    }
+    args.push_back(nullptr);
+    execv(restart_binary.c_str(), args.data());
+    std::fprintf(stderr, "zedit: couldn't restart %s -- start zedit again to use the update\n",
+                 restart_binary.c_str());
+  }
   return 0;
 }

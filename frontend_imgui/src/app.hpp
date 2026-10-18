@@ -2,17 +2,15 @@
 
 #include <imgui.h>
 
-#include <optional>
 #include <string>
 #include <vector>
 
 #include "text_view.hpp"
 #include "zedit/core/editor.hpp"
-#include "zedit/core/update_check.hpp"
 
 namespace zedit::frontend {
 
-class UpdateChecker;
+class UpdateUi;
 
 // Owns the Editor and orchestrates one frame's worth of input handling and
 // drawing. GLFW/GL setup stays in main.cpp; this class only touches ImGui.
@@ -29,9 +27,11 @@ class App {
   // load as a GL texture -- the About popup just skips drawing it then.
   App(zedit::core::Editor editor, ImFont* font, ImTextureID icon_texture);
 
-  // update_checker is owned by main() (see update_checker.hpp for why),
-  // just polled here once per frame.
-  void render_frame(ImGuiIO& io, UpdateChecker& update_checker);
+  // update_ui is owned by main() (see update_ui.hpp for why), just driven
+  // here once per frame.
+  void render_frame(ImGuiIO& io, UpdateUi& update_ui);
+  // The current file's name, for reopening it after an update restart.
+  const std::string& current_filename() const { return editor_.filename(); }
   bool should_close() const { return editor_.should_quit(); }
 
  private:
@@ -49,10 +49,6 @@ class App {
   bool word_wrap_ = false;
   // One toggle for every pane, not per-window -- see View > Show Whitespace.
   bool show_whitespace_ = false;
-  // Sticky once set: the checker's poll() only reports a found update
-  // once (see its own doc comment), so this is what actually persists
-  // it across frames for the Help menu to keep showing.
-  std::optional<zedit::core::UpdateInfo> available_update_;
   // Latches OpenPopup for the recovery modal so we only open once
   // per pending offer (ImGui needs OpenPopup on the frame before/
   // of BeginPopupModal).

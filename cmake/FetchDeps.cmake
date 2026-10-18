@@ -20,6 +20,27 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
+# ---- Monocypher -----------------------------------------------------------
+# Public-domain (BSD-2/CC0) Ed25519 + BLAKE2b, used only to *verify* the
+# minisign signature on a release's SHA256SUMS (core/src/minisign.cpp). Upstream
+# has a Makefile but no CMakeLists.txt, so the two sources are hand-declared.
+FetchContent_Declare(
+  monocypher
+  GIT_REPOSITORY https://github.com/LoupVaillant/Monocypher.git
+  GIT_TAG 4.0.2
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(monocypher)
+
+add_library(monocypher STATIC
+  ${monocypher_SOURCE_DIR}/src/monocypher.c
+  ${monocypher_SOURCE_DIR}/src/optional/monocypher-ed25519.c
+)
+target_include_directories(monocypher SYSTEM PUBLIC
+  ${monocypher_SOURCE_DIR}/src
+  ${monocypher_SOURCE_DIR}/src/optional
+)
+
 # ---- Dear ImGui ------------------------------------------------------------
 # Upstream ships no CMakeLists.txt, so we hand-declare a target compiling the
 # core sources plus the GLFW + OpenGL3 backends.

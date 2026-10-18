@@ -31,6 +31,11 @@ add_library(zedit_core STATIC
   src/recovery.cpp
   src/clipboard_text.cpp
   src/clipboard_source.cpp
+  src/sha256.cpp
+  src/minisign.cpp
+  src/update.cpp
+  src/update_signing_key.cpp
+  src/update_service.cpp
 )
 
 target_include_directories(zedit_core PUBLIC
@@ -43,6 +48,7 @@ target_link_libraries(zedit_core PUBLIC tree-sitter)
 target_link_libraries(zedit_core PRIVATE tree-sitter-c tree-sitter-cpp tree-sitter-python tree-sitter-markdown tree-sitter-markdown-inline)
 target_link_libraries(zedit_core PUBLIC nlohmann_json::nlohmann_json)
 target_link_libraries(zedit_core PUBLIC lua)
+target_link_libraries(zedit_core PRIVATE monocypher)
 find_package(Threads REQUIRED)
 target_link_libraries(zedit_core PUBLIC Threads::Threads)
 target_compile_features(zedit_core PUBLIC cxx_std_20)
