@@ -143,7 +143,11 @@ jobs:
           set -euo pipefail
           dmg=$(ls build/zedit-*-Darwin.dmg)
           mnt=$(mktemp -d)
-          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
+          # The .dmg carries a licence agreement that hdiutil asks to accept;
+          # CI has no stdin, so answer "Y" (process substitution, so the
+          # SIGPIPE from `yes` does not trip pipefail). If the attach still
+          # fails, set -e stops the job.
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg" < <(yes)
           trap 'hdiutil detach "$mnt" -quiet || true' EXIT
           test -d "$mnt/ze.app"
           test -x "$mnt/ze.app/Contents/MacOS/ze"
@@ -209,10 +213,12 @@ jobs:
             | minisign -S -s "$key" -m out/SHA256SUMS -t "zedit $GITHUB_REF_NAME SHA256SUMS"
           rm -f "$key"
           # Check it against the public key compiled into this commit, so a
-          # release the app can't verify never goes out.
+          # release the app can't verify never goes out. (The key literal sits
+          # on its own line in update_signing_key.cpp, so match the literal
+          # itself rather than the declaration.)
           pub=$(gh api "repos/$GITHUB_REPOSITORY/contents/core/src/update_signing_key.cpp?ref=$GITHUB_SHA" \
                   -H "Accept: application/vnd.github.raw" \
-                | sed -n 's/.*kUpdateSigningPublicKey\[\] = "\(RW[A-Za-z0-9+/=]*\)".*/\1/p')
+                | { grep -oE '"RW[A-Za-z0-9+/=]{54,}"' || true; } | head -n 1 | tr -d '"')
           if [ -z "$pub" ]; then
             echo "::error::core/src/update_signing_key.cpp has no public key yet: paste the minisign public key first (docs/RELEASING.md)"
             exit 1

@@ -2,7 +2,20 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
-## 1.8.1 — unreleased
+## 1.8.2
+
+### Fixed
+
+- **Release workflow.** The v1.8.1 tag built and tested but its release run failed, so nothing
+  was published. The macOS "Verify .dmg" step died with `hdiutil: attach canceled` because the
+  .dmg shows its licence agreement and CI has no stdin; it now accepts the agreement
+  non-interactively and still checks that `ze.app` and its executable are in the image. The Publish
+  step also looked for the public key on a single line of `core/src/update_signing_key.cpp`, but
+  the key literal sits on its own line, so it would have refused to publish ("has no public key");
+  it now matches the key literal itself. No change to the app. 1.8.1 was tagged but never
+  published; 1.8.2 is the first release signed with `DBC46B23C3AF0EF3`.
+
+## 1.8.1 — tagged, not published (see 1.8.2)
 
 ### Changed
 
