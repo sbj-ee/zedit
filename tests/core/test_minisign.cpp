@@ -30,6 +30,11 @@ void replace_all(std::string& s, const std::string& from, const std::string& to)
   }
 }
 
+// zterminal's release public key (key ID 32960BBA77B36F1F). Not zedit's release key: it is here
+// only because tests/data/minisign/release-key/ holds the real signature zterminal's pipeline
+// published, which this key verifies.
+constexpr char kZterminalReleasePublicKey[] = "RWQfb7N3uguWMhJ7jsE/Z0hZ7pDWHQ9OEeWSBTlN/R5bxQ8HWSMxp/l9";
+
 }  // namespace
 
 TEST_CASE("base64_decode is strict", "[minisign]") {
@@ -154,14 +159,18 @@ TEST_CASE("the release key compiled into zedit is a valid minisign key", "[minis
   auto parsed = MinisignPublicKey::parse(key, &error);
   INFO(error);
   REQUIRE(parsed.has_value());
-  REQUIRE(parsed->key_id_hex() == "32960BBA77B36F1F");
+  REQUIRE(parsed->key_id_hex() == "DBC46B23C3AF0EF3");
+  // zedit's own key, not zterminal's.
+  REQUIRE(key == "RWTzDq/DI2vE2xMeF01QWTxP2lwwlxGL9M1UxQE4EFV5kVmTF84wwyi2");
+  REQUIRE(parsed->key_id_hex() != "32960BBA77B36F1F");
 }
 
-TEST_CASE("a real signature by the release key verifies against the compiled key", "[minisign]") {
-  // zterminal's published v1.6.0 SHA256SUMS: signed by the release key that zedit
-  // embeds, so this fails if the embedded key is wrong or mistyped.
-  zedit::core::set_update_signing_public_key_for_tests("");
-  auto key = MinisignPublicKey::parse(zedit::core::update_signing_public_key());
+TEST_CASE("a real published release signature verifies (zterminal's key, as a test constant)",
+          "[minisign]") {
+  // zterminal's published v1.6.0 SHA256SUMS: a real signature made by real minisign with a real
+  // release key, checked against that key's public half (a constant above, not the key compiled
+  // into zedit). Proves the verifier reads real-world minisign output end to end.
+  auto key = MinisignPublicKey::parse(kZterminalReleasePublicKey);
   REQUIRE(key.has_value());
   const std::string sums = fixture("release-key/SHA256SUMS");
   const std::string sig = fixture("release-key/SHA256SUMS.minisig");
@@ -173,6 +182,11 @@ TEST_CASE("a real signature by the release key verifies against the compiled key
   std::string evil = sums;
   evil[0] = evil[0] == 'a' ? 'b' : 'a';
   REQUIRE_FALSE(verify_minisign(evil, sig, *key).ok);
+  // ... and zedit's own release key does not accept it.
+  zedit::core::set_update_signing_public_key_for_tests("");
+  auto own = MinisignPublicKey::parse(zedit::core::update_signing_public_key());
+  REQUIRE(own.has_value());
+  REQUIRE_FALSE(verify_minisign(sums, sig, *own).ok);
 }
 
 TEST_CASE("bad public keys are refused", "[minisign]") {
