@@ -2,14 +2,11 @@
 
 #include <imgui.h>
 
-#include <optional>
-
 #include "zedit/core/editor.hpp"
-#include "zedit/core/update_check.hpp"
 
 namespace zedit::frontend {
 
-class UpdateChecker;
+class UpdateUi;
 
 // Renders the top-of-window menu bar (File/Edit/View/Help) via
 // ImGui::BeginMainMenuBar, plus the modal popups its "Open..."/"Save
@@ -18,11 +15,8 @@ class UpdateChecker;
 // the "About zedit" popup; may be 0 if the logo failed to load.
 // word_wrap and show_whitespace are toggled in place by the View > Word
 // Wrap and View > Show Whitespace checkboxes, respectively.
-// Help > Check for Updates re-triggers update_checker and clears
-// available_update so a stale "update available" notice from before a
-// fresh check doesn't linger past it.
+// The Help menu's update entries are update_ui's (see update_ui.hpp).
 void render_menu_bar(zedit::core::Editor& ed, ImTextureID icon_texture, bool& word_wrap,
-                      bool& show_whitespace, UpdateChecker& update_checker,
-                      std::optional<zedit::core::UpdateInfo>& available_update);
+                      bool& show_whitespace, UpdateUi& update_ui);
 
 }  // namespace zedit::frontend

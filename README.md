@@ -82,9 +82,37 @@ xattr -cr /Applications/ze.app
 (Only needed once per install/update.) Right-click → Open sometimes works for
 older Gatekeeper prompts, but the “damaged” dialog needs `xattr` as above.
 
+## Updates
+
+zedit can update itself. **Help → Check for Updates** looks at the latest GitHub release and,
+if it is newer, offers **Install**, **Release Page**, **Skip This Version** or **Later**. zedit
+also checks quietly at startup, at most once a day (switch that off with **Help → Check for
+Updates at Startup**). It needs `curl`, which every supported system has.
+
+**Nothing unverified is installed.** A release publishes `SHA256SUMS` and a minisign signature
+for it, `SHA256SUMS.minisig`. zedit verifies that signature against the release key built into
+the app *before* it downloads the package, then checks the package's SHA-256 against the signed
+sums. A release without a signature (or with a bad one) is never installed: zedit says so and
+points you at the release page.
+
+- **Linux (.deb):** the verified package is copied to a private folder, checked again, and
+  installed with `pkexec apt install`: the system's own password prompt, no terminal `sudo`.
+  This only runs for the packaged install at `/usr/bin/ze`; a build from source is never
+  replaced. If you dismiss the prompt or apt fails, the verified package is kept and zedit
+  shows the `sudo apt install <path>` command to run yourself. After a successful install zedit
+  offers to restart (disabled while a buffer has unsaved changes) and reopens the current file.
+- **macOS (.dmg):** the verified disk image opens; drag `ze.app` to Applications as usual
+  (replacing a running app bundle in place is not attempted).
+
+Releases before 1.8.0 are unsigned and cannot be updated in-app: install 1.8.0 or later once
+by hand (`docs/RELEASING.md` shows how to verify it with `minisign`), and updates after that are
+checked in the app. Signing keys, secrets and the release process are in
+[docs/RELEASING.md](docs/RELEASING.md); the change history is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Building
 
-Requires CMake 3.21+, a C++20 compiler, and Ninja (recommended).
+Requires CMake 3.21+, a C++20 compiler, and Ninja (recommended). `curl` is needed at run time
+for the update check.
 
 ```sh
 cmake -B build -G Ninja
@@ -108,7 +136,7 @@ CI does) and `wl-paste`.
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.7.4`). Configure regenerates
+`CMakeLists.txt` (currently `1.8.0`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 

@@ -36,6 +36,12 @@ add_executable(zedit_tests
   core/test_bracket_match.cpp
   core/test_word_wrap.cpp
   core/test_update_check.cpp
+  core/test_sha256.cpp
+  core/test_minisign.cpp
+  core/test_update.cpp
+  core/test_update_service.cpp
+  ${CMAKE_SOURCE_DIR}/frontend_imgui/src/update_ui.cpp
+  ${CMAKE_SOURCE_DIR}/frontend_imgui/src/open_url.cpp
   core/test_fuzzy_match.cpp
   core/test_git_diff.cpp
   core/test_gedit_style.cpp
@@ -47,9 +53,13 @@ add_executable(zedit_tests
 
 target_link_libraries(zedit_tests PRIVATE
   zedit_core
+  imgui  # update_ui.cpp runs headless in test_update_service.cpp
+  monocypher  # the test-only minisign signer (tests/helpers/minisign_test_signer.hpp)
   Catch2::Catch2WithMain
   zedit_warnings
 )
+target_include_directories(zedit_tests PRIVATE ${CMAKE_SOURCE_DIR}/frontend_imgui/src)
+target_compile_definitions(zedit_tests PRIVATE ZEDIT_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
 # Real-NSPasteboard round trips for the macOS clipboard reader (see
 # frontend_imgui/src/macos_pasteboard.mm).
