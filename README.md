@@ -104,9 +104,9 @@ points you at the release page.
 - **macOS (.dmg):** the verified disk image opens; drag `ze.app` to Applications as usual
   (replacing a running app bundle in place is not attempted).
 
-Releases before 1.8.0 are unsigned and cannot be updated in-app: install 1.8.0 or later once
+Releases before 1.8.1 are unsigned and cannot be updated in-app: install 1.8.1 or later once
 by hand (`docs/RELEASING.md` shows how to verify it with `minisign`), and updates after that are
-checked in the app. Signing keys, secrets and the release process are in
+checked in the app. Releases are signed with zedit's own minisign key, ID `DBC46B23C3AF0EF3`. Signing keys, secrets and the release process are in
 [docs/RELEASING.md](docs/RELEASING.md); the change history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Building
@@ -136,7 +136,7 @@ CI does) and `wl-paste`.
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.8.0`). Configure regenerates
+`CMakeLists.txt` (currently `1.8.1`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 

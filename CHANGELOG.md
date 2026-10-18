@@ -2,6 +2,18 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.1 — unreleased
+
+### Changed
+
+- **zedit's own release key.** The updater now trusts minisign key `DBC46B23C3AF0EF3` (zedit's
+  own, replacing the zterminal key `32960BBA77B36F1F` that 1.8.0 embedded), the key that
+  `release.yml` signs with. 1.8.0 was never tagged or released. The real-signature test (a
+  published zterminal `SHA256SUMS`) now pins zterminal's key as a constant in the test instead of
+  reading the embedded key, so it still proves real-minisign interoperability; the embedded
+  key's ID and bytes are pinned by their own test. Docs name the new key. No other behaviour
+  change.
+
 ## 1.8.0 — unreleased
 
 ### Added
