@@ -10,6 +10,8 @@
    key in `core/src/update_signing_key.cpp` at the tagged commit, and creates the GitHub Release.
    Without the signing secrets, or with no public key in the source, the publish job stops
    and nothing is released.
+   Do not also create the release by hand: the workflow does it, and a release without
+   `SHA256SUMS.minisig` can never be installed by the in-app updater.
 
 (Releases before 1.8.0 were made by hand and have no `SHA256SUMS`; see "Transition".)
 
@@ -33,7 +35,8 @@ To use a separate key for zedit instead, generate one on your own machine (not i
 on a shared box), `minisign -G -p zedit-release.pub -s zedit-release.key`, set the two
 secrets from that key, paste the second line of the `.pub` file (it starts with `RW`) into
 `kUpdateSigningPublicKey` in `core/src/update_signing_key.cpp` (and update the key ID expected by
-`tests/core/test_minisign.cpp`), and release.
+`tests/core/test_minisign.cpp`, and replace `tests/data/minisign/release-key/` with a `SHA256SUMS` and
+`.minisig` signed by the new key), and release.
 
 Keep the secret key and its password in a password manager plus an offline backup. If it is
 lost, installed copies cannot verify later releases (install the next one by hand); if it
