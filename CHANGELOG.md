@@ -2,6 +2,21 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.3
+
+### Fixed
+
+- **File → New did nothing, and a buffer with unsaved changes couldn't be closed.** Pasting into
+  the startup (unnamed) buffer and then choosing File → New (or Command Palette → New) appeared
+  to do nothing: New was `open_buffer("")`, and an empty path matches the buffer that is already
+  open, so it only switched back to it. New now always adds a fresh empty buffer
+  (`Editor::new_buffer()`) and the earlier one, unsaved changes included, stays open. In the same
+  situation File → Close File was greyed out for any buffer with unsaved changes, leaving no way
+  to close it short of quitting. It is now always enabled; on a buffer with unsaved changes it
+  asks **Save / Discard / Cancel** (Save only for a named file; an unnamed buffer says to use
+  Save As… first). Cancel keeps everything as it was. `:bd!` / `:bdelete!` discards a dirty
+  buffer from the keyboard; plain `:bd` still declines.
+
 ## 1.8.2
 
 ### Fixed

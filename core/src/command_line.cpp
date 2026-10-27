@@ -40,6 +40,9 @@ ExCommand parse_ex_command(std::string_view input) {
   if (input == "bd" || input == "bdelete") {
     return ExCommand{ExCommandKind::CloseBuffer};
   }
+  if (input == "bd!" || input == "bdelete!") {
+    return ExCommand{ExCommandKind::ForceCloseBuffer};
+  }
   if (input == "sp") {
     return ExCommand{ExCommandKind::SplitHorizontal};
   }

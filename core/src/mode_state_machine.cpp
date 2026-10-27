@@ -939,6 +939,9 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
     case ExCommandKind::CloseBuffer:
       ed.close_buffer();
       break;
+    case ExCommandKind::ForceCloseBuffer:
+      ed.discard_buffer();
+      break;
     case ExCommandKind::SplitHorizontal:
       ed.split_horizontal();
       break;

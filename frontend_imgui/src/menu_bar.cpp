@@ -43,6 +43,44 @@ void sort_selection_or_all(Editor& ed, bool reverse) {
   ed.sort_lines(start, end, reverse);
 }
 
+constexpr const char* kUnsavedCloseTitle = "Unsaved Changes";
+
+// File > Close File on a buffer with unsaved changes. Save is offered only
+// when the buffer has a file name (an unnamed one needs Save As... first);
+// Discard drops the changes; Cancel (or Escape) keeps everything as it was.
+void render_unsaved_close_popup(Editor& ed) {
+  if (!ImGui::BeginPopupModal(kUnsavedCloseTitle, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    return;
+  }
+  const bool named = !ed.filename().empty();
+  ImGui::Text("This file has unsaved changes.");
+  if (!named) {
+    ImGui::TextDisabled("It has no name yet -- Cancel, then use Save As... to keep it.");
+  }
+  ImGui::Spacing();
+  if (named) {
+    if (ImGui::Button("Save", ImVec2(110, 0))) {
+      try {
+        ed.save();
+        ed.close_buffer();
+      } catch (const FileIoError&) {
+        // Save failed: leave the buffer open and unchanged.
+      }
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+  }
+  if (ImGui::Button("Discard", ImVec2(110, 0))) {
+    ed.discard_buffer();
+    ImGui::CloseCurrentPopup();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Cancel", ImVec2(110, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    ImGui::CloseCurrentPopup();
+  }
+  ImGui::EndPopup();
+}
+
 void about_popup(ImTextureID icon_texture) {
   if (!ImGui::BeginPopupModal("About zedit", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     return;
@@ -72,6 +110,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   bool find_replace_requested = false;
   bool find_file_requested = false;
   bool compare_with_requested = false;
+  bool close_confirm_requested = false;
   // Ctrl+Shift+P, guarded so it can't stack a second popup on top of one
   // already open (unlike a MenuItem click, a raw keyboard check isn't
   // blocked by ImGui's own modal-interaction gating).
@@ -83,8 +122,10 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("File")) {
+      // new_buffer(), not open_buffer(""): the latter just switches back to
+      // the existing unnamed buffer, so New did nothing while one was open.
       if (ImGui::MenuItem("New")) {
-        ed.open_buffer("");
+        ed.new_buffer();
       }
       if (ImGui::MenuItem("Open...")) {
         open_requested = true;
@@ -121,9 +162,15 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
         save_as_requested = true;
       }
       ImGui::Separator();
-      // Declines on a dirty buffer, same as ":q" -- see Editor::close_buffer.
-      if (ImGui::MenuItem("Close File", ":bd", false, !ed.dirty())) {
-        ed.close_buffer();
+      // A dirty buffer asks first (Save / Discard / Cancel) rather than
+      // greying the item out, which left no way to close a buffer you
+      // didn't want to save.
+      if (ImGui::MenuItem("Close File", ":bd")) {
+        if (ed.dirty()) {
+          close_confirm_requested = true;
+        } else {
+          ed.close_buffer();
+        }
       }
       if (ImGui::MenuItem("Quit")) {
         ed.request_quit();
@@ -253,7 +300,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   // check to see it, or the OpenPopup call is missed entirely (the bool
   // gets reset to false at the top of next frame regardless).
   std::vector<Command> commands = {
-      {"New", "", [&ed] { ed.open_buffer(""); }},
+      {"New", "", [&ed] { ed.new_buffer(); }},
       {"Open...", "", [&open_requested] { open_requested = true; }},
       {"Find File...", "", [&find_file_requested] { find_file_requested = true; }},
       {"Save", "Ctrl+S",
@@ -310,12 +357,16 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
   if (compare_with_requested) {
     ImGui::OpenPopup("Compare With");
   }
+  if (close_confirm_requested) {
+    ImGui::OpenPopup(kUnsavedCloseTitle);
+  }
   render_open_file_popup(ed);
   render_save_as_popup(ed);
   about_popup(icon_texture);
   render_find_replace_popup(ed);
   render_find_file_popup(ed);
   render_compare_with_popup(ed);
+  render_unsaved_close_popup(ed);
 }
 
 }  // namespace zedit::frontend

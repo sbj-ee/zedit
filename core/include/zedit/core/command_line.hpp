@@ -16,6 +16,7 @@ enum class ExCommandKind {
   PrevBuffer,
   ListBuffers,
   CloseBuffer,
+  ForceCloseBuffer,
   SplitHorizontal,
   SplitVertical,
   CloseWindow,
@@ -32,7 +33,7 @@ struct ExCommand {
 };
 
 // Parses a hand-rolled subset of vim's Ex commands:
-// :w :q :wq :x :q! :e <path> :bn :bp :ls :bd/:bdelete
+// :w :q :wq :x :q! :e <path> :bn :bp :ls :bd/:bdelete :bd!/:bdelete!
 // :sp :vsp/:vs :close/:clo :diff <path> :lua <code> :N (goto line N)
 ExCommand parse_ex_command(std::string_view input);
 
