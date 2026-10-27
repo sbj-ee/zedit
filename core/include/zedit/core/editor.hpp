@@ -243,6 +243,13 @@ class Editor {
   void next_buffer();
   void prev_buffer();
   void open_buffer(const std::string& path);
+  // File > New: always adds a fresh, empty, unnamed buffer and shows it in
+  // the current window. open_buffer("") can't do this -- it treats the empty
+  // path as "the unnamed buffer", so while an unnamed buffer is open (the
+  // default one at startup, usually holding whatever was just pasted into it)
+  // it only switches back to that same buffer and File > New appears to do
+  // nothing. The previous buffer, unsaved changes included, stays open.
+  void new_buffer();
   // Closes the current window's buffer (:bd), same as File > Close File.
   // A no-op if the buffer is dirty -- matching ":q" (see ExCommandKind::
   // Quit's handling), which silently declines rather than prompting; this
@@ -256,6 +263,10 @@ class Editor {
   // -- since every Window/cur_buffer() call assumes at least one buffer
   // always exists.
   void close_buffer();
+  // Same as close_buffer() but also closes a dirty buffer, discarding its
+  // unsaved changes (:bd!). The frontend calls this only after the user has
+  // confirmed the discard.
+  void discard_buffer();
 
   // The current buffer's syntax highlighter (one per buffer, since
   // different open files can be different languages). Defaults to a

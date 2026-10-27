@@ -377,6 +377,10 @@ void Editor::close_buffer() {
   if (dirty()) {
     return;
   }
+  discard_buffer();
+}
+
+void Editor::discard_buffer() {
   size_t closing = cur_window().buffer_index;
 
   if (buffers_.size() <= 1) {
@@ -445,6 +449,11 @@ void Editor::open_buffer(const std::string& path) {
   set_filename(path);
   refresh_abs_path_and_baseline();
   maybe_queue_recovery();
+}
+
+void Editor::new_buffer() {
+  buffers_.emplace_back();
+  switch_window_to_buffer(buffers_.size() - 1);
 }
 
 void Editor::do_split(SplitLayout requested) {

@@ -16,6 +16,8 @@ TEST_CASE("parse_ex_command recognizes known commands", "[command_line]") {
   REQUIRE(parse_ex_command("  w  ").kind == ExCommandKind::Write);
   REQUIRE(parse_ex_command("bd").kind == ExCommandKind::CloseBuffer);
   REQUIRE(parse_ex_command("bdelete").kind == ExCommandKind::CloseBuffer);
+  REQUIRE(parse_ex_command("bd!").kind == ExCommandKind::ForceCloseBuffer);
+  REQUIRE(parse_ex_command("bdelete!").kind == ExCommandKind::ForceCloseBuffer);
 }
 
 TEST_CASE("parse_ex_command rejects unknown commands", "[command_line]") {

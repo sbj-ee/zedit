@@ -204,3 +204,65 @@ TEST_CASE("registers and search state are shared across buffers", "[buffers][int
   feed(ed, "p");
   REQUIRE(ed.buffer().to_string() == "tshared arget");
 }
+
+// Regression: pasting into the startup (unnamed) buffer and then choosing
+// File > New did nothing, because New was open_buffer(""), which matches the
+// existing unnamed buffer and just switches back to it.
+TEST_CASE("new_buffer adds a fresh unnamed buffer even while one is already open",
+          "[buffers]") {
+  Editor ed;
+  ed.buffer() = PieceTable(std::string("pasted, never saved"));
+  feed(ed, "ix\x1b");  // dirty it through the normal edit path
+  REQUIRE(ed.filename().empty());
+  REQUIRE(ed.buffer_count() == 1);
+
+  ed.new_buffer();
+  REQUIRE(ed.buffer_count() == 2);
+  REQUIRE(ed.current_buffer_index() == 1);
+  REQUIRE(ed.buffer().to_string().empty());
+  REQUIRE(ed.filename().empty());
+  REQUIRE_FALSE(ed.dirty());
+
+  // The earlier, unsaved buffer is still there, untouched.
+  ed.switch_to_buffer(0);
+  REQUIRE(ed.buffer().to_string() == "xpasted, never saved");
+  REQUIRE(ed.dirty());
+
+  // And New can be used again.
+  ed.new_buffer();
+  REQUIRE(ed.buffer_count() == 3);
+}
+
+TEST_CASE("discard_buffer closes a dirty buffer that close_buffer declines", "[buffers]") {
+  Editor ed;
+  ed.open_buffer("/tmp/zedit_test_buf_discard.txt");
+  feed(ed, "iunsaved\x1b");
+  REQUIRE(ed.dirty());
+  ed.close_buffer();
+  REQUIRE(ed.buffer_count() == 2);  // declined
+
+  ed.discard_buffer();
+  REQUIRE(ed.buffer_count() == 1);
+  REQUIRE(ed.buffer().to_string().empty());
+}
+
+TEST_CASE("discard_buffer on the only, dirty buffer resets it to a fresh empty one",
+          "[buffers]") {
+  Editor ed;
+  feed(ed, "ipasted\x1b");
+  REQUIRE(ed.dirty());
+  ed.discard_buffer();
+  REQUIRE(ed.buffer_count() == 1);
+  REQUIRE(ed.buffer().to_string().empty());
+  REQUIRE_FALSE(ed.dirty());
+}
+
+TEST_CASE(":bd! discards a dirty buffer via the key interface", "[buffers][integration]") {
+  Editor ed;
+  ed.open_buffer("/tmp/zedit_test_buf_bang.txt");
+  feed(ed, "iunsaved\x1b");
+  feed(ed, ":bd\n");
+  REQUIRE(ed.buffer_count() == 2);  // plain :bd declines
+  feed(ed, ":bd!\n");
+  REQUIRE(ed.buffer_count() == 1);
+}
