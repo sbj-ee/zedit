@@ -33,6 +33,9 @@ class App {
   // The current file's name, for reopening it after an update restart.
   const std::string& current_filename() const { return editor_.filename(); }
   bool should_close() const { return editor_.should_quit(); }
+  // The window close button and Cmd-Q: quits at once if every buffer is
+  // clean, otherwise opens the "Unsaved changes" prompt.
+  void ask_quit() { editor_.ask_quit(); }
 
  private:
   zedit::core::Editor editor_;
@@ -53,6 +56,12 @@ class App {
   // per pending offer (ImGui needs OpenPopup on the frame before/
   // of BeginPopupModal).
   bool recovery_popup_opened_ = false;
+  // The quit prompt can't open the Save As dialog from inside itself (a
+  // popup opened there would be its child, but Save As is rendered at the
+  // top level), so it sets this, closes, and the next frame opens Save As.
+  bool quit_save_as_requested_ = false;
+
+  void render_quit_prompt();
 };
 
 }  // namespace zedit::frontend

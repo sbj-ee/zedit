@@ -197,6 +197,13 @@ int main(int argc, char** argv) {
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
+    // The close button and Cmd-Q (GLFW turns both into a close request) must
+    // not just close the window: take the request back and let the app quit
+    // now if every buffer is saved, or ask first if not.
+    if (glfwWindowShouldClose(window)) {
+      glfwSetWindowShouldClose(window, GLFW_FALSE);
+      app.ask_quit();
+    }
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();

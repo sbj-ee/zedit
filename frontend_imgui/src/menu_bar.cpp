@@ -173,7 +173,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
         }
       }
       if (ImGui::MenuItem("Quit")) {
-        ed.request_quit();
+        ed.ask_quit();  // prompts if any buffer has unsaved changes
       }
       ImGui::EndMenu();
     }
@@ -311,7 +311,7 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
          }
        }},
       {"Save As...", "", [&save_as_requested] { save_as_requested = true; }},
-      {"Quit", "", [&ed] { ed.request_quit(); }},
+      {"Quit", "", [&ed] { ed.ask_quit(); }},
       {"Undo", "u", [&ed] { ed.undo(); }},
       {"Redo", "Ctrl+R", [&ed] { ed.redo(); }},
       {"Cut", "Ctrl+X", [&ed] { ed.handle_key(KeyEvent{Key::CtrlX, 0}); }},

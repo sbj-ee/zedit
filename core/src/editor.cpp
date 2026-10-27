@@ -451,6 +451,26 @@ void Editor::open_buffer(const std::string& path) {
   maybe_queue_recovery();
 }
 
+bool Editor::any_dirty() const { return first_dirty_buffer().has_value(); }
+
+std::optional<size_t> Editor::first_dirty_buffer() const {
+  for (size_t i = 0; i < buffers_.size(); ++i) {
+    if (buffers_[i].dirty) {
+      return i;
+    }
+  }
+  return std::nullopt;
+}
+
+void Editor::ask_quit() {
+  if (any_dirty()) {
+    quit_prompt_pending_ = true;
+  } else {
+    quit_prompt_pending_ = false;
+    request_quit();
+  }
+}
+
 void Editor::new_buffer() {
   buffers_.emplace_back();
   switch_window_to_buffer(buffers_.size() - 1);
