@@ -2,6 +2,18 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.4
+
+### Fixed
+
+- **Quitting no longer throws away unsaved work.** File → Quit, Cmd-Q (and the Dock's Quit) and
+  the window close button used to exit immediately even with unsaved changes. If any buffer —
+  the one on screen or one in the background, named or not — has unsaved changes, zedit now
+  stays open and asks about each in turn, showing it first: **Save** (**Save As…** for a buffer
+  with no name; cancelling that dialog returns to the question), **Don't Save**, or **Cancel**;
+  **Discard All & Quit** skips the rest. It quits once nothing is left unsaved, and at once when
+  everything is already saved. `:q!` still quits unconditionally; `:q`/`:wq` are unchanged.
+
 ## 1.8.3
 
 ### Fixed

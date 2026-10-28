@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "zedit/core/clipboard_text.hpp"
+#include "zedit/core/file_io.hpp"
 
 #include "input_map.hpp"
 #ifdef __APPLE__
@@ -113,6 +114,8 @@ void App::render_frame(ImGuiIO& io, UpdateUi& update_ui) {
   if (update_ui.restart_requested()) {
     editor_.request_quit();  // main() re-executes the new binary after the window closes
   }
+
+  render_quit_prompt();
 
   const ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -222,6 +225,93 @@ void App::render_frame(ImGuiIO& io, UpdateUi& update_ui) {
   }
 
 
+}
+
+// Quit with unsaved changes (File > Quit, Cmd-Q, the window close button):
+// asks about each buffer with unsaved changes in turn -- showing it first --
+// Save (Save As... for an unnamed one) / Don't Save / Cancel, plus a
+// "Discard All & Quit" shortcut. Quits once nothing is left dirty.
+void App::render_quit_prompt() {
+  static constexpr const char* kTitle = "Unsaved changes";
+  static std::string save_error;
+
+  if (quit_save_as_requested_) {
+    quit_save_as_requested_ = false;
+    ImGui::OpenPopup("Save As");  // top level, rendered by render_menu_bar()
+  } else if (editor_.quit_prompt_pending() &&
+             !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) {
+    save_error.clear();
+    ImGui::OpenPopup(kTitle);
+  }
+
+  if (!ImGui::BeginPopupModal(kTitle, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    return;
+  }
+
+  std::optional<size_t> idx = editor_.first_dirty_buffer();
+  if (!idx) {
+    // Everything was saved or discarded: finish the quit.
+    editor_.request_quit();
+    editor_.cancel_quit_prompt();
+    ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+    return;
+  }
+  if (editor_.current_buffer_index() != *idx) {
+    editor_.switch_to_buffer(*idx);  // so Save As and the user see this buffer
+  }
+
+  std::string name = editor_.buffer_filename(*idx);
+  const bool named = !name.empty();
+  if (!named) {
+    name = "[No Name]";
+  } else if (auto slash = name.find_last_of("/\\"); slash != std::string::npos) {
+    name = name.substr(slash + 1);
+  }
+  size_t others = 0;
+  for (size_t i = *idx + 1; i < editor_.buffer_count(); ++i) {
+    if (editor_.buffer_dirty(i)) ++others;
+  }
+
+  ImGui::Text("Save changes to \"%s\" before quitting?", name.c_str());
+  if (others > 0) {
+    ImGui::TextDisabled("%zu other buffer%s also unsaved.", others, others == 1 ? "" : "s");
+  }
+  if (!save_error.empty()) {
+    ImGui::TextColored(ImVec4(0.9f, 0.35f, 0.35f, 1.0f), "%s", save_error.c_str());
+  }
+  ImGui::Spacing();
+
+  if (ImGui::Button(named ? "Save" : "Save As...", ImVec2(110, 0))) {
+    if (named) {
+      try {
+        editor_.save();
+        save_error.clear();
+      } catch (const zedit::core::FileIoError& e) {
+        save_error = e.what();
+      }
+    } else {
+      quit_save_as_requested_ = true;
+      ImGui::CloseCurrentPopup();  // reopens by itself if Save As is cancelled
+    }
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Don't Save", ImVec2(110, 0))) {
+    editor_.discard_buffer();
+    save_error.clear();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Discard All & Quit", ImVec2(150, 0))) {
+    editor_.request_quit();
+    editor_.cancel_quit_prompt();
+    ImGui::CloseCurrentPopup();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Cancel", ImVec2(110, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    editor_.cancel_quit_prompt();
+    ImGui::CloseCurrentPopup();
+  }
+  ImGui::EndPopup();
 }
 
 }  // namespace zedit::frontend

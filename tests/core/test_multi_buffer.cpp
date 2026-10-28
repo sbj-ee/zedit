@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
+#include <optional>
 #include <string_view>
 
 #include "zedit/core/editor.hpp"
@@ -265,4 +266,68 @@ TEST_CASE(":bd! discards a dirty buffer via the key interface", "[buffers][integ
   REQUIRE(ed.buffer_count() == 2);  // plain :bd declines
   feed(ed, ":bd!\n");
   REQUIRE(ed.buffer_count() == 1);
+}
+
+// Quit (File > Quit, Cmd-Q, the window close button) must not throw away
+// unsaved work in ANY buffer, not just the one on screen.
+TEST_CASE("ask_quit quits at once when every buffer is clean", "[buffers][quit]") {
+  Editor ed;
+  ed.open_buffer("/tmp/zedit_test_quit_clean.txt");
+  REQUIRE_FALSE(ed.any_dirty());
+  ed.ask_quit();
+  REQUIRE(ed.should_quit());
+  REQUIRE_FALSE(ed.quit_prompt_pending());
+}
+
+TEST_CASE("ask_quit prompts instead of quitting when the current buffer is dirty",
+          "[buffers][quit]") {
+  Editor ed;
+  feed(ed, "ipasted\x1b");  // the unnamed startup buffer, as after a paste
+  REQUIRE(ed.any_dirty());
+  ed.ask_quit();
+  REQUIRE_FALSE(ed.should_quit());
+  REQUIRE(ed.quit_prompt_pending());
+
+  ed.cancel_quit_prompt();
+  REQUIRE_FALSE(ed.quit_prompt_pending());
+  REQUIRE_FALSE(ed.should_quit());
+  REQUIRE(ed.buffer().to_string() == "pasted");  // untouched
+}
+
+TEST_CASE("ask_quit prompts when only a background buffer is dirty", "[buffers][quit]") {
+  Editor ed;
+  feed(ed, "ibackground\x1b");        // dirty buffer 0
+  ed.open_buffer("/tmp/zedit_test_quit_other.txt");  // now viewing a clean buffer 1
+  REQUIRE_FALSE(ed.dirty());
+  REQUIRE(ed.any_dirty());
+  REQUIRE(ed.first_dirty_buffer() == std::optional<size_t>(0));
+
+  ed.ask_quit();
+  REQUIRE_FALSE(ed.should_quit());
+  REQUIRE(ed.quit_prompt_pending());
+}
+
+TEST_CASE("quit can be completed once the dirty buffers are discarded", "[buffers][quit]") {
+  Editor ed;
+  feed(ed, "ione\x1b");
+  ed.new_buffer();
+  feed(ed, "itwo\x1b");
+  ed.ask_quit();
+  REQUIRE(ed.quit_prompt_pending());
+
+  // The frontend's loop: show the first dirty buffer, drop it, repeat.
+  while (auto idx = ed.first_dirty_buffer()) {
+    ed.switch_to_buffer(*idx);
+    ed.discard_buffer();
+  }
+  REQUIRE_FALSE(ed.any_dirty());
+  ed.ask_quit();
+  REQUIRE(ed.should_quit());
+}
+
+TEST_CASE("request_quit still quits unconditionally (:q!)", "[buffers][quit]") {
+  Editor ed;
+  feed(ed, "ix\x1b");
+  ed.request_quit();
+  REQUIRE(ed.should_quit());
 }

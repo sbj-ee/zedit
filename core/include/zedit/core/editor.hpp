@@ -80,6 +80,18 @@ class Editor {
   bool dirty() const { return cur_buffer().dirty; }
   bool should_quit() const { return should_quit_; }
   void request_quit() { should_quit_ = true; }
+  // True if ANY open buffer (not just the current one) has unsaved changes.
+  bool any_dirty() const;
+  // Index of the first buffer with unsaved changes, if any.
+  std::optional<size_t> first_dirty_buffer() const;
+  // The user-facing quit paths (File > Quit, Cmd-Q, the window close button):
+  // quits at once when every buffer is clean; otherwise it doesn't quit but
+  // raises quit_prompt_pending(), which the frontend answers with a
+  // Save / Don't Save / Cancel prompt per dirty buffer. request_quit() is the
+  // unconditional form (":q!", "Discard All & Quit", an update restart).
+  void ask_quit();
+  bool quit_prompt_pending() const { return quit_prompt_pending_; }
+  void cancel_quit_prompt() { quit_prompt_pending_ = false; }
 
   void save();
   void save_as(const std::string& path);
@@ -420,6 +432,7 @@ class Editor {
   std::optional<DiffPair> diff_pair_;
   ModeStateMachine mode_sm_;
   bool should_quit_ = false;
+  bool quit_prompt_pending_ = false;
   RegisterContent unnamed_register_;
   std::array<RegisterContent, 26> named_registers_;
   ClipboardBridge clipboard_;
