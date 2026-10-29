@@ -2,6 +2,14 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.5
+
+### Changed
+
+- **Recent Files moved to the bottom of the File menu**, after Close File and just above Quit,
+  between separators. Its submenu no longer covers Save and Save As… while moving down the menu.
+  Behaviour is unchanged.
+
 ## 1.8.4
 
 ### Fixed

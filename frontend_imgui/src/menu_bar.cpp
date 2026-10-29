@@ -133,25 +133,6 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       if (ImGui::MenuItem("Find File...")) {
         find_file_requested = true;
       }
-      if (ImGui::BeginMenu("Recent Files")) {
-        std::vector<std::string> recents = load_recent_files();
-        if (recents.empty()) {
-          ImGui::TextDisabled("(none)");
-        } else {
-          for (const std::string& path : recents) {
-            if (ImGui::MenuItem(path.c_str())) {
-              try {
-                ed.open_buffer(path);
-              } catch (const FileTooLargeError&) {
-                // No error-display surface on a plain menu item -- the
-                // status line/last_error() path (used by :e) isn't
-                // reachable from here, so this just silently declines.
-              }
-            }
-          }
-        }
-        ImGui::EndMenu();
-      }
       if (ImGui::MenuItem("Save", "Ctrl+S")) {
         try {
           ed.save();
@@ -172,6 +153,29 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
           ed.close_buffer();
         }
       }
+      ImGui::Separator();
+      // Recent Files sits at the bottom so its popup doesn't cover Save/Save As
+      // while the pointer moves down the menu.
+      if (ImGui::BeginMenu("Recent Files")) {
+        std::vector<std::string> recents = load_recent_files();
+        if (recents.empty()) {
+          ImGui::TextDisabled("(none)");
+        } else {
+          for (const std::string& path : recents) {
+            if (ImGui::MenuItem(path.c_str())) {
+              try {
+                ed.open_buffer(path);
+              } catch (const FileTooLargeError&) {
+                // No error-display surface on a plain menu item -- the
+                // status line/last_error() path (used by :e) isn't
+                // reachable from here, so this just silently declines.
+              }
+            }
+          }
+        }
+        ImGui::EndMenu();
+      }
+      ImGui::Separator();
       if (ImGui::MenuItem("Quit")) {
         ed.ask_quit();  // prompts if any buffer has unsaved changes
       }
