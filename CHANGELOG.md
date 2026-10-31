@@ -2,6 +2,13 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.6 (unreleased)
+
+### Changed
+
+- **CI and release builds moved from the macos-14 to the macos-15 runner image**, which GitHub
+  retires on November 2, 2026. No code changes.
+
 ## 1.8.5
 
 ### Changed
