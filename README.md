@@ -7,6 +7,8 @@ Targets Linux and macOS. The binary is `ze` — short to type, like `vi`. Think
 gedit's approachable GUI chrome (menus, mouse support, a file browser) layered
 over neovim's modal, keyboard-driven editing power.
 
+![zedit editing a C file with syntax highlighting](docs/screenshot.png)
+
 ## Features
 
 - Modal editing: Normal/Insert/Visual/Visual Line/Command-line/Search modes,
