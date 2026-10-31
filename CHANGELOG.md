@@ -2,6 +2,13 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.7 (unreleased)
+
+### Documentation
+
+- **README screenshot**: the README now shows zedit editing a C file (`docs/screenshot.png`).
+  No code changes.
+
 ## 1.8.6 (unreleased)
 
 ### Changed
