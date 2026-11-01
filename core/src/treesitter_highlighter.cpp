@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "capture_kind.hpp"
+#include "ts_incremental.hpp"
 
 namespace zedit::core {
 
@@ -26,13 +27,7 @@ TreeSitterHighlighter::~TreeSitterHighlighter() {
 }
 
 void TreeSitterHighlighter::set_text(std::string_view text) {
-  text_.assign(text);
-  TSTree* new_tree = ts_parser_parse_string(parser_, nullptr, text_.data(),
-                                             static_cast<uint32_t>(text_.size()));
-  if (tree_) {
-    ts_tree_delete(tree_);
-  }
-  tree_ = new_tree;
+  tree_ = detail::reparse(parser_, tree_, text_, text, last_parse_incremental_);
 }
 
 std::vector<HighlightSpan> TreeSitterHighlighter::highlight(size_t start_byte,
