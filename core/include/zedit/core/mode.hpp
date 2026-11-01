@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
+#include "zedit/core/utf8.hpp"
+
 namespace zedit::core {
 
 enum class Mode { Normal, Insert, CommandLine, Visual, VisualLine, Search };
@@ -42,6 +47,17 @@ struct KeyEvent {
   Key key = Key::Unknown;
   char ch = 0;  // valid when key == Key::Char
 };
+
+// A typed character as Key::Char events: one for ASCII, one per UTF-8 byte
+// for anything else (so "é" inserts both of its bytes). 0, surrogates and
+// values past U+10FFFF yield nothing.
+inline std::vector<KeyEvent> char_key_events(uint32_t codepoint) {
+  std::vector<KeyEvent> out;
+  if (codepoint == 0 || codepoint > 0x10FFFF) return out;
+  if (codepoint >= 0xD800 && codepoint <= 0xDFFF) return out;  // lone surrogate
+  for (char byte : utf8_encode(codepoint)) out.push_back(KeyEvent{Key::Char, byte});
+  return out;
+}
 
 enum class EditorAction { None, Quit };
 

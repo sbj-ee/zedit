@@ -11,8 +11,8 @@ std::vector<zedit::core::KeyEvent> collect_key_events(ImGuiIO& io) {
   std::vector<KeyEvent> events;
 
   for (ImWchar c : io.InputQueueCharacters) {
-    if (c > 0 && c < 128) {
-      events.push_back(KeyEvent{Key::Char, static_cast<char>(c)});
+    for (const KeyEvent& ev : zedit::core::char_key_events(static_cast<uint32_t>(c))) {
+      events.push_back(ev);
     }
   }
 

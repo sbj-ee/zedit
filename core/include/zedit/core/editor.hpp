@@ -346,7 +346,10 @@ class Editor {
   // frame from the frontend to process incoming messages.
   bool lsp_running() const { return lsp_->running(); }
   void poll_lsp() { lsp_->poll(); }
-  std::vector<LspDiagnostic> diagnostics() const { return lsp_->diagnostics_for(filename()); }
+  // Diagnostics for the current file, columns converted to bytes.
+  std::vector<LspDiagnostic> diagnostics() const;
+  // The cursor column as LSP counts it (UTF-16 code units).
+  size_t lsp_cursor_col() const;
   // 'gd': jumps to the definition of the symbol under the cursor,
   // switching buffers if it's in a different file. No-op if clangd isn't
   // running or the request comes back empty.

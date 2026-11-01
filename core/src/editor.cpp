@@ -1,5 +1,7 @@
 #include "zedit/core/editor.hpp"
 
+#include "zedit/core/utf8.hpp"
+
 #include <algorithm>
 #include <utility>
 
@@ -58,15 +60,36 @@ void Editor::maybe_start_lsp_for_current_buffer() {
   lsp_->open_document(cur_buffer().filename, cur_buffer().content.to_string());
 }
 
+size_t Editor::lsp_cursor_col() const {
+  if (cursor().line >= buffer().line_count()) return cursor().col;
+  return utf8_col_to_utf16(buffer().line_text(cursor().line), cursor().col);
+}
+
+std::vector<LspDiagnostic> Editor::diagnostics() const {
+  std::vector<LspDiagnostic> diags = lsp_->diagnostics_for(filename());
+  // Server columns are UTF-16 units; the renderer wants byte columns.
+  const size_t lines = buffer().line_count();
+  for (LspDiagnostic& d : diags) {
+    if (d.start_line < lines) d.start_col = utf16_col_to_utf8(buffer().line_text(d.start_line), d.start_col);
+    if (d.end_line < lines) d.end_col = utf16_col_to_utf8(buffer().line_text(d.end_line), d.end_col);
+  }
+  return diags;
+}
+
 void Editor::go_to_definition() {
   if (!lsp_->running()) {
     return;
   }
-  lsp_->request_definition(filename(), cursor().line, cursor().col,
+  lsp_->request_definition(filename(), cursor().line, lsp_cursor_col(),
                             [this](std::optional<LspLocation> loc) {
                               if (!loc) return;
                               open_buffer(loc->path);
-                              set_cursor(Cursor{loc->line, loc->col});
+                              // LSP columns are UTF-16 units; ours are bytes.
+                              size_t col = 0;
+                              if (loc->line < buffer().line_count()) {
+                                col = utf16_col_to_utf8(buffer().line_text(loc->line), loc->col);
+                              }
+                              set_cursor(Cursor{loc->line, col});
                               clamp_cursor_to_line();
                             });
 }
@@ -76,7 +99,7 @@ void Editor::request_hover() {
     return;
   }
   hover_text_.reset();
-  lsp_->request_hover(filename(), cursor().line, cursor().col,
+  lsp_->request_hover(filename(), cursor().line, lsp_cursor_col(),
                        [this](std::optional<std::string> text) { hover_text_ = std::move(text); });
 }
 
@@ -93,23 +116,25 @@ size_t Editor::current_line_length() const {
   return buffer().line_text(cursor().line).size();
 }
 
+// Columns are byte offsets but always sit on a UTF-8 code point boundary.
+// Outside Insert mode the cursor rests on the last character, not past it.
 void Editor::clamp_cursor_to_line() {
-  size_t len = current_line_length();
-  size_t max_col = (mode() == Mode::Insert) ? len : (len > 0 ? len - 1 : 0);
-  cur_window().cursor.col = std::min(cur_window().cursor.col, max_col);
+  std::string line = buffer().line_text(cur_window().cursor.line);
+  size_t max_col = (mode() == Mode::Insert) ? line.size() : utf8_prev(line, line.size());
+  cur_window().cursor.col = utf8_floor(line, std::min(cur_window().cursor.col, max_col));
 }
 
 void Editor::move_left() {
-  if (cur_window().cursor.col > 0) {
-    --cur_window().cursor.col;
-  }
+  std::string line = buffer().line_text(cur_window().cursor.line);
+  cur_window().cursor.col = utf8_prev(line, std::min(cur_window().cursor.col, line.size()));
 }
 
 void Editor::move_right() {
-  size_t len = current_line_length();
-  size_t max_col = (mode() == Mode::Insert) ? len : (len > 0 ? len - 1 : 0);
-  if (cur_window().cursor.col < max_col) {
-    ++cur_window().cursor.col;
+  std::string line = buffer().line_text(cur_window().cursor.line);
+  size_t max_col = (mode() == Mode::Insert) ? line.size() : utf8_prev(line, line.size());
+  size_t next = utf8_next(line, cur_window().cursor.col);
+  if (cur_window().cursor.col < max_col && next <= max_col) {
+    cur_window().cursor.col = next;
   }
 }
 
@@ -154,9 +179,13 @@ void Editor::insert_text_at_cursor(std::string_view text) {
 
 void Editor::backspace() {
   if (cur_window().cursor.col > 0) {
-    size_t offset = cursor_offset();
-    buffer().erase(offset - 1, 1);
-    --cur_window().cursor.col;
+    // A whole code point, not its last byte.
+    std::string line = buffer().line_text(cur_window().cursor.line);
+    size_t col = std::min(cur_window().cursor.col, line.size());
+    size_t prev = utf8_prev(line, col);
+    size_t offset = buffer().line_start_offset(cur_window().cursor.line) + col;
+    buffer().erase(offset - (col - prev), col - prev);
+    cur_window().cursor.col = prev;
     mark_dirty();
   } else if (cur_window().cursor.line > 0) {
     size_t prev_line = cur_window().cursor.line - 1;
