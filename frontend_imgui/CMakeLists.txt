@@ -76,6 +76,9 @@ target_link_libraries(zedit PRIVATE
 )
 if(APPLE)
   target_link_libraries(zedit PRIVATE zedit_macos_pasteboard)
+  # Apple deprecated OpenGL in 10.14; it still works and zedit depends on it,
+  # so keep the deprecation warnings from failing -Werror builds.
+  target_compile_definitions(zedit PRIVATE GL_SILENCE_DEPRECATION)
 elseif(UNIX)
   target_link_libraries(zedit PRIVATE zedit_linux_clipboard)
 endif()
