@@ -2,6 +2,21 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.9 (unreleased)
+
+### Fixed
+
+- **`:q` and `:wq` no longer quit over unsaved changes in another buffer.** Like vim, they now
+  refuse with `E162: No write since last change for buffer "…" (add ! to override)` while any
+  open buffer is dirty; `:wq` still saves the current buffer first. `:q!` quits regardless.
+- **A failed save no longer looks like a successful one.** Saving now writes a temp file next to
+  the original, fsyncs it and renames it into place, so a full disk or I/O error leaves the
+  original file untouched, keeps the buffer marked unsaved, and shows the error on the status
+  line (including from File ▸ Save, the command palette and the close-buffer prompt, which used
+  to swallow it). Saves keep the file's permissions and write through symlinks to their target.
+  Devices and FIFOs, and files in a directory zedit can't create files in, are still written in
+  place, with every write, fsync and close checked.
+
 ## 1.8.8 (unreleased)
 
 ### Fixed

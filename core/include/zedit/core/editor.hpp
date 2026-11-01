@@ -64,6 +64,8 @@ class Editor {
   }
   char line_input_prefix() const { return mode_sm_.line_input_prefix(); }
   const std::string& last_error() const { return mode_sm_.last_error(); }
+  // Puts an error (e.g. a failed save from a menu) on the status line.
+  void report_error(std::string message) { mode_sm_.set_error(std::move(message)); }
   Cursor visual_anchor() const { return mode_sm_.visual_anchor(); }
 
   // Vim (default) vs Gedit editing style -- see EditingStyle's own doc
