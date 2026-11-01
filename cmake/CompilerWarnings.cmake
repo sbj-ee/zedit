@@ -31,5 +31,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   # anyone building from source.
   if(ZEDIT_WERROR)
     target_compile_options(zedit_warnings INTERFACE -Werror)
+    # GCC 13 at -O2 reports -Wnull-dereference false positives from inlined
+    # libstdc++ <streambuf> code (std::ostringstream in tests). Keep the
+    # warning visible but don't let it fail the build on GCC.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      target_compile_options(zedit_warnings INTERFACE -Wno-error=null-dereference)
+    endif()
   endif()
 endif()

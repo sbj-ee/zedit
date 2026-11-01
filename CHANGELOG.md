@@ -7,7 +7,7 @@ zedit had no changelog before 1.8.0; earlier history is in the git log and the G
 ### Tests / CI
 - Tests that need a real `clangd` now `SKIP` when it isn't on `PATH` instead of failing; CI sets `ZEDIT_REQUIRE_CLANGD=1` so a missing clangd there is still a failure.
 - New CI job: Linux AddressSanitizer + UndefinedBehaviorSanitizer build of the test suite (`-DZEDIT_SANITIZE=ON`).
-- CI builds with `-DZEDIT_WERROR=ON` (new option, off by default): warnings in zedit's own code fail CI without breaking local builds on newer compilers. Dear ImGui and Lua headers are now SYSTEM includes so their macros don't warn in our code; `-Wmissing-field-initializers` is off for the `Struct{first}` idiom.
+- CI builds with `-DZEDIT_WERROR=ON` (new option, off by default): warnings in zedit's own code fail CI without breaking local builds on newer compilers. Dear ImGui and Lua headers are now SYSTEM includes so their macros don't warn in our code; `-Wmissing-field-initializers` is off for the `Struct{first}` idiom. On GCC, `-Wnull-dereference` stays a warning (not an error) because GCC 13 at -O2 reports false positives from inlined libstdc++ `<streambuf>`.
 - New `scripts/check-version.sh` (run in CI and, with `--tag`, by the release workflow): `project()` version, the top CHANGELOG heading and the README note must agree; a tag must match and its heading must be dated.
 
 ### Docs
