@@ -11,7 +11,8 @@ using zedit::core::Subprocess;
 TEST_CASE("Subprocess spawns a real process and reads its output", "[subprocess]") {
   Subprocess proc;
   REQUIRE(proc.start("/bin/echo", {"hello", "subprocess"}));
-  REQUIRE(proc.running());
+  // No running() check here: running() reaps, and echo may already have
+  // exited (it does on fast machines). The cat tests cover a live child.
 
   std::string output;
   for (int i = 0; i < 10 && output.find('\n') == std::string::npos; ++i) {
