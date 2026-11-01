@@ -262,6 +262,10 @@ std::optional<ReleaseAsset> ReleaseInfo::signature_asset() const {
   return find_asset(assets, "SHA256SUMS.minisig");
 }
 
+std::string expected_sums_trusted_comment(std::string_view tag) {
+  return "zedit " + std::string(tag) + " SHA256SUMS";
+}
+
 std::string expected_package_name(const SemVer& version) {
 #if defined(__APPLE__)
   return "zedit-" + version.to_string() + "-Darwin.dmg";

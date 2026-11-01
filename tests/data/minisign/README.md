@@ -12,3 +12,7 @@ signed with the real release key (a public file, copied unchanged from that rele
 signature covers those exact bytes, so the zterminal file names stay). It proves the verifier
 reads real minisign output; the test pins zterminal's public key (`32960BBA77B36F1F`) as a constant.
 zedit's own release key (`DBC46B23C3AF0EF3`) is the one compiled into `core/src/update_signing_key.cpp`.
+
+`zedit-release/` is the public `SHA256SUMS` and `SHA256SUMS.minisig` of zedit's own v1.8.5
+release, copied unchanged. It pins the exact trusted comment `release.yml` signs with
+(`zedit v1.8.5 SHA256SUMS`), which the updater requires to name the release being installed.

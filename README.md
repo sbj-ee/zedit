@@ -91,8 +91,10 @@ Updates at Startup**). It needs `curl`, which every supported system has.
 **Nothing unverified is installed.** A release publishes `SHA256SUMS` and a minisign signature
 for it, `SHA256SUMS.minisig`. zedit verifies that signature against the release key built into
 the app *before* it downloads the package, then checks the package's SHA-256 against the signed
-sums. A release without a signature (or with a bad one) is never installed: zedit says so and
-points you at the release page.
+sums. The signature's trusted comment must name the release being installed
+(`zedit <tag> SHA256SUMS`), so a genuine but older signed `SHA256SUMS` can't be passed off as a
+newer release. A release without a signature (or with a bad one) is never installed: zedit says so
+and points you at the release page.
 
 - **Linux (.deb):** the verified package is copied to a private folder, checked again, and
   installed with `pkexec apt install`: the system's own password prompt, no terminal `sudo`.
@@ -151,7 +153,7 @@ CI does) and `wl-paste`.
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.9.3`). Configure regenerates
+`CMakeLists.txt` (currently `1.9.4`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 
