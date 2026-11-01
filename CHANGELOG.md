@@ -2,6 +2,18 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.9.3 (unreleased)
+
+### Tests / CI
+- Tests that need a real `clangd` now `SKIP` when it isn't on `PATH` instead of failing; CI sets `ZEDIT_REQUIRE_CLANGD=1` so a missing clangd there is still a failure.
+- New CI job: Linux AddressSanitizer + UndefinedBehaviorSanitizer build of the test suite (`-DZEDIT_SANITIZE=ON`).
+- CI builds with `-DZEDIT_WERROR=ON` (new option, off by default): warnings in zedit's own code fail CI without breaking local builds on newer compilers. Dear ImGui and Lua headers are now SYSTEM includes so their macros don't warn in our code; `-Wmissing-field-initializers` is off for the `Struct{first}` idiom. On GCC, `-Wnull-dereference` stays a warning (not an error) because GCC 13 at -O2 reports false positives from inlined libstdc++ `<streambuf>`.
+- New `scripts/check-version.sh` (run in CI and, with `--tag`, by the release workflow): `project()` version, the top CHANGELOG heading and the README note must agree; a tag must match and its heading must be dated.
+
+### Docs
+- README install instructions point at `releases/latest` rather than stale pinned 1.7.4 links, use `apt install ./…deb`, list the Linux build dependencies, and document the clangd skip and sanitizer/Werror options; the "currently" version is current again.
+- CHANGELOG headings of released versions carry their release dates.
+
 ## 1.9.2 (unreleased)
 
 ### Performance
@@ -101,7 +113,7 @@ zedit had no changelog before 1.8.0; earlier history is in the git log and the G
 - **CI and release builds moved from the macos-14 to the macos-15 runner image**, which GitHub
   retires on November 2, 2026. No code changes.
 
-## 1.8.5
+## 1.8.5 — 2026-10-29
 
 ### Changed
 
@@ -109,7 +121,7 @@ zedit had no changelog before 1.8.0; earlier history is in the git log and the G
   between separators. Its submenu no longer covers Save and Save As… while moving down the menu.
   Behaviour is unchanged.
 
-## 1.8.4
+## 1.8.4 — 2026-10-28
 
 ### Fixed
 
@@ -121,7 +133,7 @@ zedit had no changelog before 1.8.0; earlier history is in the git log and the G
   **Discard All & Quit** skips the rest. It quits once nothing is left unsaved, and at once when
   everything is already saved. `:q!` still quits unconditionally; `:q`/`:wq` are unchanged.
 
-## 1.8.3
+## 1.8.3 — 2026-10-27
 
 ### Fixed
 
@@ -136,7 +148,7 @@ zedit had no changelog before 1.8.0; earlier history is in the git log and the G
   Save As… first). Cancel keeps everything as it was. `:bd!` / `:bdelete!` discards a dirty
   buffer from the keyboard; plain `:bd` still declines.
 
-## 1.8.2
+## 1.8.2 — 2026-10-18
 
 ### Fixed
 
@@ -149,7 +161,7 @@ zedit had no changelog before 1.8.0; earlier history is in the git log and the G
   it now matches the key literal itself. No change to the app. 1.8.1 was tagged but never
   published; 1.8.2 is the first release signed with `DBC46B23C3AF0EF3`.
 
-## 1.8.1 — tagged, not published (see 1.8.2)
+## 1.8.1 — 2026-10-18 (tagged, not published; see 1.8.2)
 
 ### Changed
 

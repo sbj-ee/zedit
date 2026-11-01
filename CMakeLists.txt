@@ -20,7 +20,7 @@ endif()
 # core/ generates include/zedit/core/version.hpp from these numbers
 # (About dialog, update check, tests). CPack and macOS bundle already
 # use PROJECT_VERSION.
-project(zedit VERSION 1.9.2 LANGUAGES CXX C)
+project(zedit VERSION 1.9.3 LANGUAGES CXX C)
 
 # macOS reads the clipboard through NSPasteboard directly
 # (frontend_imgui/src/macos_pasteboard.mm), so Objective-C++ is needed
@@ -41,6 +41,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(ZEDIT_BUILD_TESTS "Build the Catch2 test suite" ON)
+option(ZEDIT_WERROR "Treat warnings in zedit's own code as errors (CI sets this)" OFF)
+option(ZEDIT_SANITIZE "Build with AddressSanitizer + UndefinedBehaviorSanitizer" OFF)
+if(ZEDIT_SANITIZE)
+  add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined)
+  add_link_options(-fsanitize=address,undefined)
+endif()
 
 include(cmake/CompilerWarnings.cmake)
 include(cmake/FetchDeps.cmake)

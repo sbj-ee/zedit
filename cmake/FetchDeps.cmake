@@ -61,7 +61,7 @@ add_library(imgui STATIC
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
 )
-target_include_directories(imgui PUBLIC
+target_include_directories(imgui SYSTEM PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
 )
@@ -191,7 +191,7 @@ list(REMOVE_ITEM LUA_SOURCES
   ${lua_SOURCE_DIR}/ltests.c
 )
 add_library(lua STATIC ${LUA_SOURCES})
-target_include_directories(lua PUBLIC ${lua_SOURCE_DIR})
+target_include_directories(lua SYSTEM PUBLIC ${lua_SOURCE_DIR})
 if(UNIX)
   target_link_libraries(lua PRIVATE m)
 endif()
