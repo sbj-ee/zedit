@@ -18,9 +18,11 @@
 #pragma GCC diagnostic pop
 #endif
 
+#include <signal.h>
 #include <unistd.h>
 
 #include <cstdio>
+#include <exception>
 #include <string>
 #include <utility>
 #include <vector>
@@ -128,6 +130,9 @@ void apply_config(zedit::core::Editor& editor) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Writing to a language server that has exited must fail with EPIPE, not
+  // kill the editor with SIGPIPE (exit 141) and lose unsaved buffers.
+  ::signal(SIGPIPE, SIG_IGN);
   glfwSetErrorCallback(glfw_error_callback);
   if (!glfwInit()) {
     return 1;
@@ -209,7 +214,14 @@ int main(int argc, char** argv) {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    app.render_frame(io, update_ui);
+    // Last line of defence: an exception escaping one frame is logged and
+    // the editor keeps running (with the user's unsaved buffers) instead of
+    // terminating. ImGui's error recovery closes any windows left open.
+    try {
+      app.render_frame(io, update_ui);
+    } catch (const std::exception& e) {
+      std::fprintf(stderr, "zedit: error during frame: %s\n", e.what());
+    }
     if (app.should_close()) {
       glfwSetWindowShouldClose(window, GLFW_TRUE);
     }

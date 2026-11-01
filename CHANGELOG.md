@@ -2,6 +2,27 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.8 (unreleased)
+
+### Fixed
+
+- **A crashed or missing clangd no longer takes zedit down.** zedit now ignores `SIGPIPE`, so
+  typing after the language server exits fails the write quietly instead of killing the editor
+  (exit 141) with unsaved buffers.
+- **A missing clangd is reported as missing.** Starting a server whose `exec` fails now returns
+  failure (the child reports its errno over a close-on-exec pipe), and "LSP running" checks that
+  the child is still alive, so nothing is sent to a process that isn't there.
+- **Pasting non-ASCII text in a C/C++ file can't crash the editor.** Messages to the server are
+  encoded with invalid UTF-8 replaced (U+FFFD) instead of throwing `type_error.316`; sends and
+  incoming server messages can no longer throw into the editor, and the frame loop logs and
+  survives any exception that does escape.
+
+### Changed
+
+- Subprocess pipes are close-on-exec (no fd leaks into other children), the child's argv is
+  built before `fork()` (no allocation in the child of a threaded process), and the LSP reader
+  thread is joined before its pipe is closed (no close-while-reading race).
+
 ## 1.8.7 (unreleased)
 
 ### Documentation
