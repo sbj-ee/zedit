@@ -1,14 +1,24 @@
 #include "zedit/core/piece_table.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <utility>
 
 namespace zedit::core {
 
-PieceTable::PieceTable() = default;
+namespace {
+
+uint64_t next_revision() {
+  static std::atomic<uint64_t> counter{0};
+  return ++counter;
+}
+
+}  // namespace
+
+PieceTable::PieceTable() : revision_(next_revision()) {}
 
 PieceTable::PieceTable(std::string original_content)
-    : original_(std::move(original_content)) {
+    : original_(std::move(original_content)), revision_(next_revision()) {
   total_length_ = original_.size();
   if (total_length_ > 0) {
     pieces_.push_back(Piece{BufferSource::Original, 0, total_length_});
@@ -23,6 +33,7 @@ void PieceTable::restore(Snapshot snap) {
   pieces_ = std::move(snap.pieces);
   total_length_ = snap.total_length;
   line_index_dirty_ = true;
+  revision_ = next_revision();
 }
 
 std::string_view PieceTable::piece_view(const Piece& p) const {
@@ -67,6 +78,7 @@ void PieceTable::insert(size_t offset, std::string_view text) {
 
   total_length_ += text.size();
   line_index_dirty_ = true;
+  revision_ = next_revision();
 }
 
 void PieceTable::erase(size_t offset, size_t length) {
@@ -91,6 +103,7 @@ void PieceTable::erase(size_t offset, size_t length) {
 
   total_length_ -= length;
   line_index_dirty_ = true;
+  revision_ = next_revision();
 }
 
 std::string PieceTable::text_range(size_t start, size_t length) const {

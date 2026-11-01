@@ -338,7 +338,7 @@ class Editor {
   // diff_status_for_window. Only Added/Unchanged are meaningful here --
   // a line-based diff has no notion of "modified" separate from
   // "removed old + added new," so a changed line just reads as Added.
-  std::vector<DiffLineStatus> git_diff_status();
+  const std::vector<DiffLineStatus>& git_diff_status();
 
   // Language server integration (currently: clangd for C++ files only).
   // Started lazily the first time a C++ file becomes current; silently
@@ -413,6 +413,11 @@ class Editor {
     // any repo is only ever probed once, not every frame.
     std::optional<std::string> git_head_content;
     bool git_head_fetched = false;
+    // HEAD split into lines once, and the last gutter result with the
+    // content revision it was computed for (0 = none).
+    std::vector<std::string> git_head_lines;
+    std::vector<DiffLineStatus> git_diff_cache;
+    uint64_t git_diff_revision = 0;
     // Absolute path used as the swap key (weakly_canonical when possible).
     std::string abs_path;
     // On-disk file identity at last successful load/save.

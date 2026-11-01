@@ -14,8 +14,8 @@ struct DiffResult {
 
 // Line-based diff via a longest-common-subsequence alignment: lines in the
 // LCS are Unchanged on both sides; everything else is Removed (left-only)
-// or Added (right-only). O(N*M) time and space, which is fine for typical
-// source files but not intended for huge ones.
+// or Added (right-only). Myers' algorithm with common prefix/suffix
+// trimming: O((N+M)·D) time for D differing lines, linear space.
 DiffResult diff_lines(const std::vector<std::string>& left, const std::vector<std::string>& right);
 
 }  // namespace zedit::core
