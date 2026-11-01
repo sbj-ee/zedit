@@ -47,7 +47,7 @@ void check_random_edits(const char* filename, std::string text, const char* alph
       text.erase(pos, len);
     } else {
       std::string ins;
-      for (unsigned n = 1 + rng() % 3; n > 0; --n) ins += chars[rng() % chars.size()];
+      for (auto n = static_cast<unsigned>(1 + rng() % 3); n > 0; --n) ins += chars[rng() % chars.size()];
       text.insert(pos, ins);
     }
     live->set_text(text);
