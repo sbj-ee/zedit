@@ -49,6 +49,7 @@ void LspManager::stop() {
   diagnostics_.clear();
   pending_requests_.clear();
   deferred_until_initialized_.clear();
+  deferred_change_text_.clear();
 }
 
 void LspManager::run_or_defer(std::function<void()> action) {
@@ -70,18 +71,41 @@ void LspManager::open_document(const std::string& path, const std::string& text)
   });
 }
 
-void LspManager::change_document(const std::string& path, const std::string& text) {
-  run_or_defer([this, path, text]() {
+void LspManager::change_document(const std::string& path, std::string text) {
+  if (!initialized_) {
+    // Until the server answers initialize, keep only the newest text per
+    // document: one queued didChange whose text is updated in place, not a
+    // full copy of the document per keystroke.
+    auto it = deferred_change_text_.find(path);
+    if (it != deferred_change_text_.end()) {
+      *it->second = std::move(text);
+      return;
+    }
+    auto latest = std::make_shared<std::string>(std::move(text));
+    deferred_change_text_[path] = latest;
+    deferred_until_initialized_.push_back([this, path, latest]() {
+      deferred_change_text_.erase(path);
+      send_change(path, *latest);
+    });
+    return;
+  }
+  send_change(path, text);
+}
+
+void LspManager::send_change(const std::string& path, const std::string& text) {
+  {
     int version = ++document_versions_[path];
     nlohmann::json params;
     params["textDocument"] = {{"uri", lsp_path_to_uri(path)}, {"version", version}};
     params["contentChanges"] = nlohmann::json::array({{{"text", text}}});
     transport_->send(
         {{"jsonrpc", "2.0"}, {"method", "textDocument/didChange"}, {"params", params}});
-  });
+  }
 }
 
 void LspManager::close_document(const std::string& path) {
+  // A change queued after this close (a reopen) must get its own slot.
+  deferred_change_text_.erase(path);
   run_or_defer([this, path]() {
     document_versions_.erase(path);
     diagnostics_.erase(path);
