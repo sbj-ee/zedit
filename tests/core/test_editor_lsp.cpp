@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "zedit/core/editor.hpp"
+#include "clangd_available.hpp"
 #include "zedit/core/file_io.hpp"
 
 using zedit::core::Editor;
@@ -41,6 +42,7 @@ bool wait_until(Editor& ed, Predicate&& done, std::chrono::seconds timeout) {
 }  // namespace
 
 TEST_CASE("opening a .cpp file starts clangd and reports diagnostics", "[lsp][editor]") {
+  ZEDIT_REQUIRE_CLANGD_OR_SKIP();
   std::string path = "/tmp/zedit_test_editor_lsp_diag.cpp";
   zedit::core::write_file(path, "int main() {\n  totally_undeclared_thing;\n}\n");
 
@@ -60,6 +62,7 @@ TEST_CASE("opening a non-C++ file never starts clangd", "[lsp][editor]") {
 }
 
 TEST_CASE("'gd' jumps to a real definition via clangd", "[lsp][editor][integration]") {
+  ZEDIT_REQUIRE_CLANGD_OR_SKIP();
   std::string path = "/tmp/zedit_test_editor_lsp_gd.cpp";
   zedit::core::write_file(
       path, "int add(int a, int b) {\n  return a + b;\n}\n\nint main() {\n  return add(1, 2);\n}\n");
@@ -75,6 +78,7 @@ TEST_CASE("'gd' jumps to a real definition via clangd", "[lsp][editor][integrati
 }
 
 TEST_CASE("'K' fetches hover text via clangd", "[lsp][editor][integration]") {
+  ZEDIT_REQUIRE_CLANGD_OR_SKIP();
   std::string path = "/tmp/zedit_test_editor_lsp_hover.cpp";
   zedit::core::write_file(path, "int add(int a, int b) {\n  return a + b;\n}\n");
 

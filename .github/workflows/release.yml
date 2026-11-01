@@ -46,6 +46,9 @@ jobs:
             libwayland-dev libxkbcommon-dev \
             dpkg-dev xvfb xauth xclip libgl1-mesa-dri
 
+      - name: Version, CHANGELOG (dated) and README agree with the tag
+        run: scripts/check-version.sh --tag "$GITHUB_REF_NAME"
+
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 

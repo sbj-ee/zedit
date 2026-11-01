@@ -12,6 +12,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: CMake version, CHANGELOG and README agree
+        run: scripts/check-version.sh
+
   linux:
     name: Linux (ubuntu)
     runs-on: ubuntu-latest
@@ -37,7 +45,7 @@ jobs:
           # [real-clipboard][wayland] tests.
 
       - name: Configure
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DZEDIT_WERROR=ON
 
       - name: Build
         run: cmake --build build
@@ -64,6 +72,8 @@ jobs:
           # use the real X11 CLIPBOARD (Xvfb) and Wayland clipboard (sway)
           # instead of skipping.
           ZEDIT_TEST_REAL_CLIPBOARD: "1"
+          # clangd is installed above, so its tests must run, not skip.
+          ZEDIT_REQUIRE_CLANGD: "1"
         run: |
           XDG_RUNTIME_DIR="$ZEDIT_XDG_RUNTIME_DIR" WAYLAND_DISPLAY=wayland-1 \
             xvfb-run -a ctest --test-dir build --output-on-failure
@@ -138,7 +148,8 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_OSX_ARCHITECTURES=arm64
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DZEDIT_WERROR=ON
 
       - name: Build
         run: cmake --build build
@@ -175,3 +186,33 @@ jobs:
           name: zedit-macos-arm64-dmg
           path: build/*.dmg
           if-no-files-found: error
+
+  sanitizers:
+    name: Linux ASan + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            cmake ninja-build g++ pkg-config \
+            clang clangd \
+            libgl1-mesa-dev \
+            libx11-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev \
+            libwayland-dev libxkbcommon-dev \
+            xvfb xauth libgl1-mesa-dri
+
+      - name: Configure (Debug, sanitizers)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DZEDIT_SANITIZE=ON
+
+      - name: Build tests
+        run: cmake --build build --target zedit_tests
+
+      - name: Test under ASan + UBSan
+        env:
+          ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1:strict_string_checks=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+          ZEDIT_REQUIRE_CLANGD: "1"
+        run: xvfb-run -a ./build/tests/zedit_tests --durations yes
