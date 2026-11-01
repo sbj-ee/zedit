@@ -2,6 +2,23 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.9.0 (unreleased)
+
+### Fixed
+
+- **Pasting in Insert mode is no longer quadratic.** Ctrl-P (and dot-repeat of typed text) now
+  inserts the whole text as one edit instead of one byte at a time, each of which copied the
+  buffer, re-parsed it and re-sent it to clangd. A 90 KB paste that took tens of seconds is now
+  instant.
+- **No more unbounded memory while clangd is starting.** Changes made before the server finishes
+  initializing used to queue a full copy of the document per keystroke; now only the newest text
+  per document is kept and sent once the server is ready.
+
+### Changed
+
+- Each edit copies the buffer text once (shared by the highlighter and the LSP change) instead
+  of twice.
+
 ## 1.8.10 (unreleased)
 
 ### Security

@@ -2,8 +2,10 @@
 # A stand-in for clangd used by tests/core/test_editor_lsp_robustness.cpp.
 # Speaks just enough LSP: answers initialize, and after didOpen/didChange
 # publishes one diagnostic so a test can tell the handshake completed.
-# ZEDIT_FAKE_LSP_MODE=crash_after_open exits right after the first didOpen,
-# like a server that crashed mid-session.
+# The diagnostic's message is "text:" + the document text the server now
+# has. ZEDIT_FAKE_LSP_MODE=crash_after_open exits right after the first
+# didOpen, like a server that crashed mid-session; never_initialize never
+# answers initialize, like a server stuck starting up.
 import json
 import os
 import sys
@@ -47,13 +49,20 @@ while True:
         sys.exit(0)
     method = msg.get("method")
     if method == "initialize":
+        if mode == "never_initialize":
+            continue
         send({"jsonrpc": "2.0", "id": msg["id"], "result": {"capabilities": {}}})
     elif method in ("textDocument/didOpen", "textDocument/didChange"):
         if mode == "crash_after_open":
             os._exit(1)
-        uri = msg["params"]["textDocument"]["uri"]
+        params = msg["params"]
+        uri = params["textDocument"]["uri"]
+        if method == "textDocument/didOpen":
+            text = params["textDocument"]["text"]
+        else:
+            text = params["contentChanges"][-1]["text"]
         send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
               "params": {"uri": uri, "diagnostics": [{
                   "range": {"start": {"line": 0, "character": 0},
                             "end": {"line": 0, "character": 1}},
-                  "severity": 2, "message": "fake"}]}})
+                  "severity": 2, "message": "text:" + text}]}})

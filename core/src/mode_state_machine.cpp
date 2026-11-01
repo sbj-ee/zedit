@@ -427,9 +427,7 @@ void ModeStateMachine::begin_insert_change(LastChange lc) {
 }
 
 void ModeStateMachine::replay_insert_text(const std::string& text, Editor& ed) {
-  for (char c : text) {
-    ed.insert_char(c);
-  }
+  ed.insert_text_at_cursor(text);
   ed.clamp_cursor_to_line();
 }
 
@@ -799,10 +797,11 @@ KeyResult ModeStateMachine::handle_insert(KeyEvent ev, Editor& ed) {
     // the cursor, matching how paste behaves inside a text field in any
     // GUI editor -- you're mid-sentence, not placing a whole line.
     ed.sync_unnamed_from_clipboard();
-    for (char c : ed.unnamed_register().text) {
-      ed.insert_char(c);
-      insert_session_text_.push_back(c);
-    }
+    // One edit for the whole paste: per-byte inserts re-copied the buffer,
+    // re-parsed it and re-sent it to clangd for every byte (quadratic).
+    const std::string text = ed.unnamed_register().text;
+    ed.insert_text_at_cursor(text);
+    insert_session_text_ += text;
   }
   return KeyResult{};
 }
