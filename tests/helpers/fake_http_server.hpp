@@ -33,6 +33,9 @@ class FakeHttpServer {
     // Sends the headers (claiming a huge body) and then a trickle of bytes
     // until the client goes away: a download that can be cancelled.
     bool endless = false;
+    // With `endless`: send no Content-Length at all (body runs until the
+    // connection closes), in 64 KiB chunks, like a server that streams.
+    bool no_length = false;
   };
 
   FakeHttpServer() {
@@ -140,12 +143,15 @@ class FakeHttpServer {
     }
     std::string head = "HTTP/1.1 " + std::to_string(response.status) + " X\r\n";
     for (const auto& [k, v] : response.headers) head += k + ": " + v + "\r\n";
-    head += "Content-Length: " +
-            (response.endless ? std::string("500000000") : std::to_string(response.body.size())) +
-            "\r\nConnection: close\r\n\r\n";
+    if (!(response.endless && response.no_length)) {
+      head += "Content-Length: " +
+              (response.endless ? std::string("500000000") : std::to_string(response.body.size())) +
+              "\r\n";
+    }
+    head += "Connection: close\r\n\r\n";
     if (send_all(fd, head)) {
       if (response.endless) {
-        const std::string chunk(4096, 'x');
+        const std::string chunk(response.no_length ? 65536 : 4096, 'x');
         while (!stop_.load() && send_all(fd, chunk)) {
           std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }

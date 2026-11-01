@@ -104,7 +104,8 @@ struct Fixture {
     server.set("/download/" + package_name, {302, "", {{"Location", "/cdn/" + package_name}}, false});
     server.set("/cdn/" + package_name, {200, package_bytes, {}, false});
     server.set("/download/SHA256SUMS", {200, sums, {}, false});
-    server.set("/download/SHA256SUMS.minisig", {200, key.sign(sums), {}, false});
+    server.set("/download/SHA256SUMS.minisig",
+               {200, key.sign(sums, expected_sums_trusted_comment(tag)), {}, false});
   }
 
   UpdateConfig config(int installer_exit = 0) const {
@@ -325,6 +326,47 @@ TEST_CASE("install: a signature by the wrong key stops everything before the pac
   UpdateInstallResult r = install(s, fetch_release(s));
   REQUIRE(r.outcome == UpdateInstallResult::Outcome::Failed);
   REQUIRE(r.message.find("signature is not valid") != std::string::npos);
+  REQUIRE_FALSE(f.package_requested());
+  REQUIRE_FALSE(f.installer_ran());
+  REQUIRE(entries_in(f.work) == 0);
+}
+
+TEST_CASE("install: a valid signature for another release's SHA256SUMS is refused",
+          "[update-service]") {
+  Fixture f;
+  // Correct key and bytes, but signed as an older release (a replay).
+  f.server.set("/download/SHA256SUMS.minisig",
+               {200, f.key.sign(f.sums, "zedit v1.7.0 SHA256SUMS"), {}, false});
+  UpdateService s(f.config());
+  UpdateInstallResult r = install(s, fetch_release(s));
+  REQUIRE(r.outcome == UpdateInstallResult::Outcome::Failed);
+  REQUIRE(r.message.find("signed for a different release") != std::string::npos);
+  REQUIRE(r.message.find("zedit v1.8.0 SHA256SUMS") != std::string::npos);
+  REQUIRE_FALSE(f.package_requested());
+  REQUIRE_FALSE(f.installer_ran());
+  REQUIRE(entries_in(f.work) == 0);
+
+  // minisign's default trusted comment (no -t) is refused too.
+  f.server.set("/download/SHA256SUMS.minisig", {200, f.key.sign(f.sums), {}, false});
+  r = install(s, fetch_release(s));
+  REQUIRE(r.outcome == UpdateInstallResult::Outcome::Failed);
+  REQUIRE_FALSE(f.package_requested());
+}
+
+TEST_CASE("install: a download without Content-Length is capped while it streams",
+          "[update-service]") {
+  Fixture f;
+  // SHA256SUMS that never ends and announces no length, so curl's
+  // --max-filesize can't catch it; the 1 MiB small-asset cap must.
+  FakeHttpServer::Response endless{200, "", {}, true};
+  endless.no_length = true;
+  f.server.set("/download/SHA256SUMS", endless);
+  UpdateService s(f.config());
+  auto start = std::chrono::steady_clock::now();
+  UpdateInstallResult r = install(s, fetch_release(s));
+  REQUIRE(std::chrono::steady_clock::now() - start < std::chrono::seconds(20));
+  REQUIRE(r.outcome == UpdateInstallResult::Outcome::Failed);
+  REQUIRE(r.message.find("larger than zedit accepts") != std::string::npos);
   REQUIRE_FALSE(f.package_requested());
   REQUIRE_FALSE(f.installer_ran());
   REQUIRE(entries_in(f.work) == 0);

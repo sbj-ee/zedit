@@ -2,6 +2,12 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.9.4 (unreleased)
+
+### Security
+- The updater now requires the `SHA256SUMS` signature's trusted comment to be exactly `zedit <tag> SHA256SUMS` for the release being installed (what `release.yml` signs; checked against the real v1.8.5 release, whose signed text is `zedit v1.8.5 SHA256SUMS`). A validly signed `SHA256SUMS` from another release can no longer be replayed under a different tag; it fails before the package is downloaded.
+- Downloads are capped while they stream: curl's `--max-filesize` only works when the server sends a length, so a response without one (or a wrong one) is now stopped as soon as the file on disk passes the limit (1 MiB for `SHA256SUMS`/`.minisig`, 1 GiB for packages) and reported as too large.
+
 ## 1.9.3 (unreleased)
 
 ### Tests / CI

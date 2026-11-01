@@ -66,6 +66,12 @@ struct ReleaseInfo {
 // The package file name this platform expects for `version` (for messages).
 std::string expected_package_name(const SemVer& version);
 
+// The trusted comment release.yml signs SHA256SUMS with: "zedit <tag> SHA256SUMS"
+// (e.g. "zedit v1.8.5 SHA256SUMS"). The updater requires it to name the release
+// being installed, so a validly signed SHA256SUMS from another (older) release
+// can't be replayed under a newer tag.
+std::string expected_sums_trusted_comment(std::string_view tag);
+
 // SHA256SUMS ("<64 hex>  <name>" or "<64 hex> *<name>" per line, as written by sha256sum).
 struct ChecksumResult {
   enum class Status { Ok, Mismatch, NotListed, BadFile, Unreadable };
