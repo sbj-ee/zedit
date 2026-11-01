@@ -63,8 +63,9 @@ void render_unsaved_close_popup(Editor& ed) {
       try {
         ed.save();
         ed.close_buffer();
-      } catch (const FileIoError&) {
-        // Save failed: leave the buffer open and unchanged.
+      } catch (const FileIoError& e) {
+        // Save failed: leave the buffer open and unchanged, and say why.
+        ed.report_error(e.what());
       }
       ImGui::CloseCurrentPopup();
     }
@@ -136,7 +137,8 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
       if (ImGui::MenuItem("Save", "Ctrl+S")) {
         try {
           ed.save();
-        } catch (const FileIoError&) {
+        } catch (const FileIoError& e) {
+          ed.report_error(e.what());
         }
       }
       if (ImGui::MenuItem("Save As...")) {
@@ -311,7 +313,8 @@ void render_menu_bar(Editor& ed, ImTextureID icon_texture, bool& word_wrap,
        [&ed] {
          try {
            ed.save();
-         } catch (const FileIoError&) {
+         } catch (const FileIoError& e) {
+           ed.report_error(e.what());
          }
        }},
       {"Save As...", "", [&save_as_requested] { save_as_requested = true; }},

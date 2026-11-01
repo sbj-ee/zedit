@@ -26,6 +26,8 @@ class ModeStateMachine {
 
   Mode mode() const { return mode_; }
   const std::string& last_error() const { return last_error_; }
+  // Shows `message` on the status line, like an Ex command error.
+  void set_error(std::string message) { last_error_ = std::move(message); }
   Cursor visual_anchor() const { return visual_anchor_; }
 
   // Switching to Gedit collapses any in-progress vim command state
