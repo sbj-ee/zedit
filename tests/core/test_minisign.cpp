@@ -189,6 +189,24 @@ TEST_CASE("a real published release signature verifies (zterminal's key, as a te
   REQUIRE_FALSE(verify_minisign(sums, sig, *own).ok);
 }
 
+TEST_CASE("zedit's real v1.8.5 SHA256SUMS verifies with the compiled-in key and names its tag",
+          "[minisign]") {
+  // Copied unchanged from the published v1.8.5 release: the real signed text
+  // release.yml produces. The updater requires this exact trusted comment.
+  zedit::core::set_update_signing_public_key_for_tests("");
+  auto own = MinisignPublicKey::parse(zedit::core::update_signing_public_key());
+  REQUIRE(own.has_value());
+  const std::string sums = fixture("zedit-release/SHA256SUMS");
+  const std::string sig = fixture("zedit-release/SHA256SUMS.minisig");
+  REQUIRE_FALSE(sums.empty());
+  MinisignResult r = verify_minisign(sums, sig, *own);
+  INFO(r.error);
+  REQUIRE(r.ok);
+  REQUIRE(r.trusted_comment == "zedit v1.8.5 SHA256SUMS");
+  REQUIRE(r.trusted_comment == zedit::core::expected_sums_trusted_comment("v1.8.5"));
+  REQUIRE(r.trusted_comment != zedit::core::expected_sums_trusted_comment("v1.8.6"));
+}
+
 TEST_CASE("bad public keys are refused", "[minisign]") {
   REQUIRE_FALSE(MinisignPublicKey::parse("").has_value());
   REQUIRE_FALSE(MinisignPublicKey::parse("not base64 !!").has_value());

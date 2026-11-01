@@ -232,10 +232,19 @@ class Job {
       s_->progress.received = 0;
       s_->progress.total = size_hint > 0 ? size_hint : -1;
     }
-    ProcessOutput out = run_process(argv, "", s_->cancel, [&]() {
-      if (quick) return;
+    // curl's --max-filesize only works when the server sends a length; a
+    // response without one (or a lying one) is capped here as it streams.
+    std::atomic<bool> stop{false};
+    bool over_cap = false;
+    ProcessOutput out = run_process(argv, "", stop, [&]() {
+      if (s_->cancel.load()) stop.store(true);
       std::error_code size_ec;
       auto bytes = fs::file_size(dest, size_ec);
+      if (!size_ec && static_cast<int64_t>(bytes) > max_bytes) {
+        over_cap = true;
+        stop.store(true);
+      }
+      if (quick) return;
       std::lock_guard<std::mutex> lock(s_->mutex);
       s_->progress.asset = what;
       s_->progress.received = size_ec ? 0 : static_cast<int64_t>(bytes);
@@ -255,6 +264,11 @@ class Job {
     if (!out.started || (out.exit_code == 127 && curl_message.empty())) {
       r.error = "curl could not be started, so zedit can't download updates. Install curl or "
                 "get the release from its page.";
+      return r;
+    }
+    if (over_cap) {
+      r.error = what + " is larger than zedit accepts, so it was not downloaded.";
+      fs::remove(dest, ec);
       return r;
     }
     if (out.cancelled) {
@@ -431,6 +445,12 @@ class Job {
     if (!verdict.ok) {
       return cleanup_and(fail("The release's SHA256SUMS signature is not valid (" + verdict.error +
                               "), so nothing was downloaded or installed."));
+    }
+    if (verdict.trusted_comment != expected_sums_trusted_comment(release.tag)) {
+      return cleanup_and(fail("The release's SHA256SUMS is signed for a different release (\"" +
+                              verdict.trusted_comment + "\", expected \"" +
+                              expected_sums_trusted_comment(release.tag) +
+                              "\"), so nothing was downloaded or installed."));
     }
     // 3. The package, against the signed sums.
     set_stage(UpdateStage::Downloading);
