@@ -41,6 +41,9 @@ void Editor::set_filename(std::string path) {
   // reusing a stale answer computed for the old one.
   cur_buffer().git_head_fetched = false;
   cur_buffer().git_head_content.reset();
+  cur_buffer().git_head_lines.clear();
+  cur_buffer().git_diff_cache.clear();
+  cur_buffer().git_diff_revision = 0;
 }
 
 void Editor::maybe_start_lsp_for_current_buffer() {
@@ -569,20 +572,29 @@ std::vector<DiffLineStatus> Editor::diff_status_for_window(size_t window_index) 
   return (buf_index == diff_pair_->buffer_a) ? result.left : result.right;
 }
 
-std::vector<DiffLineStatus> Editor::git_diff_status() {
+const std::vector<DiffLineStatus>& Editor::git_diff_status() {
+  static const std::vector<DiffLineStatus> kNone;
   Buffer& buf = cur_buffer();
   if (!buf.git_head_fetched) {
     buf.git_head_fetched = true;
+    buf.git_diff_revision = 0;
+    buf.git_diff_cache.clear();
     if (!buf.filename.empty()) {
       buf.git_head_content = git_head_content(buf.filename);
+      if (buf.git_head_content) {
+        buf.git_head_lines = buffer_lines(PieceTable(*buf.git_head_content));
+      }
     }
   }
   if (!buf.git_head_content) {
-    return {};
+    return kNone;
   }
-  DiffResult result =
-      diff_lines(buffer_lines(PieceTable(*buf.git_head_content)), buffer_lines(buf.content));
-  return result.right;
+  // Called every frame by the gutter: recompute only after an edit.
+  if (buf.git_diff_revision != buf.content.revision()) {
+    buf.git_diff_cache = diff_lines(buf.git_head_lines, buffer_lines(buf.content)).right;
+    buf.git_diff_revision = buf.content.revision();
+  }
+  return buf.git_diff_cache;
 }
 
 

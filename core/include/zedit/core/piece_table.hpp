@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -58,6 +60,10 @@ class PieceTable {
   Snapshot snapshot() const;
   void restore(Snapshot snap);
 
+  // Changes on every edit (and differs between separately built tables,
+  // process-wide), so callers can cache work derived from the content.
+  uint64_t revision() const { return revision_; }
+
  private:
   std::string original_;
   std::string added_;
@@ -65,6 +71,7 @@ class PieceTable {
   size_t total_length_ = 0;
 
   mutable bool line_index_dirty_ = true;
+  uint64_t revision_ = 0;
   mutable std::vector<size_t> line_starts_;
 
   std::string_view piece_view(const Piece& p) const;
