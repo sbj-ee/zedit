@@ -1,5 +1,7 @@
 #include "zedit/core/mode_state_machine.hpp"
 
+#include "zedit/core/utf8.hpp"
+
 #include <algorithm>
 #include <utility>
 
@@ -28,14 +30,16 @@ namespace {
 size_t offset_left_within_line(Editor& ed, size_t offset) {
   size_t line = ed.offset_to_cursor(offset).line;
   size_t line_start = ed.buffer().line_start_offset(line);
-  return offset > line_start ? offset - 1 : line_start;
+  if (offset <= line_start) return line_start;
+  return line_start + utf8_prev(ed.buffer().line_text(line), offset - line_start);
 }
 
 size_t offset_right_within_line(Editor& ed, size_t offset) {
   Cursor c = ed.offset_to_cursor(offset);
   size_t line_start = ed.buffer().line_start_offset(c.line);
-  size_t max_offset = line_start + ed.buffer().line_text(c.line).size();
-  return offset < max_offset ? offset + 1 : max_offset;
+  std::string text = ed.buffer().line_text(c.line);
+  size_t max_offset = line_start + text.size();
+  return offset < max_offset ? line_start + utf8_next(text, offset - line_start) : max_offset;
 }
 
 }  // namespace
@@ -640,9 +644,9 @@ KeyResult ModeStateMachine::handle_normal(KeyEvent ev, Editor& ed) {
     case 'a': {
       ed.begin_undo_group();
       Cursor c = ed.cursor();
-      size_t len = ed.buffer().line_text(c.line).size();
-      if (c.col < len) {
-        ++c.col;
+      const std::string line = ed.buffer().line_text(c.line);
+      if (c.col < line.size()) {
+        c.col = utf8_next(line, c.col);  // past the whole code point
         ed.set_cursor(c);
       }
       mode_ = Mode::Insert;

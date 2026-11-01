@@ -1,5 +1,7 @@
 #include "zedit/core/operator.hpp"
 
+#include "zedit/core/utf8.hpp"
+
 #include <algorithm>
 #include <string>
 
@@ -99,10 +101,14 @@ void execute_operator_linewise(OperatorKind op, size_t start_line, int count,
 
 void execute_delete_char(int count, Editor& ed, char register_name) {
   size_t offset = ed.cursor_offset();
-  size_t line_len = ed.current_line_length();
-  size_t col = ed.cursor().col;
-  size_t available = (line_len > col) ? (line_len - col) : 0;
-  size_t n = std::min(static_cast<size_t>(std::max(count, 1)), available);
+  // `count` characters (code points), not bytes, stopping at end of line.
+  std::string line = ed.buffer().line_text(ed.cursor().line);
+  size_t col = std::min(ed.cursor().col, line.size());
+  size_t end = col;
+  for (int i = 0; i < std::max(count, 1) && end < line.size(); ++i) {
+    end = utf8_next(line, end);
+  }
+  size_t n = end - col;
   if (n == 0) {
     return;
   }
