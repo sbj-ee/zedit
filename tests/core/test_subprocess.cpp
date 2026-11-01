@@ -59,22 +59,31 @@ TEST_CASE("Writing to a child that has exited fails instead of raising SIGPIPE",
   REQUIRE_FALSE(ok);  // reached only if SIGPIPE didn't kill the test binary
 }
 
-TEST_CASE("Subprocess doesn't leak its pipe ends into later children", "[subprocess]") {
-  Subprocess a;
-  REQUIRE(a.start("/bin/cat", {}));
-  Subprocess b;
-  // b's shell lists its own fds; with CLOEXEC pipes it holds only 0, 1, 2
-  // (plus the directory fd ls itself opens).
-  REQUIRE(b.start("/bin/sh", {"-c", "ls /proc/self/fd 2>/dev/null || ls /dev/fd"}));
+namespace {
+// Number of fds a freshly started child shell sees.
+size_t child_fd_count() {
+  Subprocess lister;
+  REQUIRE(lister.start("/bin/sh", {"-c", "ls /proc/self/fd 2>/dev/null || ls /dev/fd"}));
   std::string out;
-  for (std::string chunk = b.read_some(); !chunk.empty(); chunk = b.read_some()) {
+  for (std::string chunk = lister.read_some(); !chunk.empty(); chunk = lister.read_some()) {
     out += chunk;
   }
   size_t count = 0;
   for (char c : out) {
     if (c == '\n') ++count;
   }
-  REQUIRE(count <= 4);
+  return count;
+}
+}  // namespace
+
+TEST_CASE("Subprocess doesn't leak its pipe ends into later children", "[subprocess]") {
+  // Compare against a baseline so fds inherited from the test runner
+  // (CI keeps a few open) don't count.
+  size_t baseline = child_fd_count();
+  Subprocess a;
+  REQUIRE(a.start("/bin/cat", {}));
+  // Without CLOEXEC the second child would also hold a's pipe ends.
+  REQUIRE(child_fd_count() == baseline);
 }
 
 TEST_CASE("Subprocess round-trips data through a cat echo", "[subprocess]") {
