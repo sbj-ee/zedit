@@ -15,6 +15,16 @@ namespace zedit::core {
 
 namespace {
 
+std::string unsaved_buffer_error(const Editor& ed, size_t index) {
+  const std::string& name = ed.buffer_filename(index);
+  return "E162: No write since last change for buffer \"" +
+         (name.empty() ? std::string("[No Name]") : name) + "\" (add ! to override)";
+}
+
+}  // namespace
+
+namespace {
+
 size_t offset_left_within_line(Editor& ed, size_t offset) {
   size_t line = ed.offset_to_cursor(offset).line;
   size_t line_start = ed.buffer().line_start_offset(line);
@@ -900,7 +910,11 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
       }
       break;
     case ExCommandKind::Quit:
-      if (!ed.dirty()) {
+      // Like vim: refuse while ANY buffer has unsaved changes, not just
+      // the current one (":q!" discards them all).
+      if (auto dirty = ed.first_dirty_buffer()) {
+        last_error_ = unsaved_buffer_error(ed, *dirty);
+      } else {
         ed.request_quit();
       }
       break;
@@ -910,7 +924,12 @@ KeyResult ModeStateMachine::handle_command_line(KeyEvent ev, Editor& ed) {
     case ExCommandKind::WriteQuit:
       try {
         ed.save();
-        ed.request_quit();
+        // Saving this buffer says nothing about the others.
+        if (auto dirty = ed.first_dirty_buffer()) {
+          last_error_ = unsaved_buffer_error(ed, *dirty);
+        } else {
+          ed.request_quit();
+        }
       } catch (const FileIoError& e) {
         last_error_ = e.what();
       }

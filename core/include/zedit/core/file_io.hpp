@@ -38,6 +38,12 @@ inline constexpr uintmax_t kMaxFileSizeBytes = 256ULL * 1024 * 1024;  // 256 MB
 void check_file_size_or_throw(uintmax_t size, const std::string& path);
 
 std::string read_file(const std::string& path);
+// Saves atomically: writes a temp file beside the target, fsyncs it, then
+// renames it over the target, so a failed write (full disk, I/O error)
+// throws FileIoError and leaves the original file untouched. Keeps the
+// original's permissions, and writes through a symlink to the file it
+// points at. Devices/FIFOs, and files in a directory zedit can't create
+// files in, are written in place, still with every write checked.
 void write_file(const std::string& path, std::string_view content);
 
 }  // namespace zedit::core
