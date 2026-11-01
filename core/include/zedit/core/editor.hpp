@@ -109,6 +109,9 @@ class Editor {
 
   // Editing operations used by the mode state machine's Insert handling.
   void insert_char(char c);
+  // Inserts `text` at the cursor and leaves the cursor after it, exactly
+  // like insert_char() per byte, but as a single edit (paste, dot-repeat).
+  void insert_text_at_cursor(std::string_view text);
   void backspace();
   void open_line_below();
   void open_line_above();
@@ -463,9 +466,10 @@ class Editor {
   void maybe_start_lsp_for_current_buffer();
   void mark_dirty() {
     cur_buffer().dirty = true;
-    cur_buffer().highlighter->set_text(cur_buffer().content.to_string());
+    std::string text = cur_buffer().content.to_string();
+    cur_buffer().highlighter->set_text(text);
     if (lsp_->running() && is_cpp_filename(cur_buffer().filename)) {
-      lsp_->change_document(cur_buffer().filename, cur_buffer().content.to_string());
+      lsp_->change_document(cur_buffer().filename, std::move(text));
     }
     if (!cur_buffer().filename.empty()) {
       cur_buffer().recovery_debounce.arm();

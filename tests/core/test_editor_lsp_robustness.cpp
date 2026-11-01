@@ -113,3 +113,56 @@ TEST_CASE("frame_message replaces invalid UTF-8 instead of throwing", "[json_rpc
   REQUIRE_NOTHROW(framed = zedit::core::frame_message(msg));
   REQUIRE(framed.find("\xef\xbf\xbd") != std::string::npos);  // U+FFFD
 }
+
+TEST_CASE("while the server is still initializing, only the latest change is queued",
+          "[lsp][robustness]") {
+  ScopedEnv mode("ZEDIT_FAKE_LSP_MODE", "never_initialize");
+  zedit::core::LspManager lsp;
+  REQUIRE(lsp.start(kFakeDir + "/clangd"));
+  lsp.open_document("/tmp/zedit_test_deferred.cpp", "x");
+  std::string text = "x";
+  for (int i = 0; i < 1000; ++i) {
+    text += 'y';
+    lsp.change_document("/tmp/zedit_test_deferred.cpp", text);
+  }
+  // didOpen + one didChange, not 1000 full copies of the document.
+  REQUIRE(lsp.deferred_count() == 2);
+  lsp.close_document("/tmp/zedit_test_deferred.cpp");
+  lsp.open_document("/tmp/zedit_test_deferred.cpp", "z");
+  lsp.change_document("/tmp/zedit_test_deferred.cpp", "zz");
+  REQUIRE(lsp.deferred_count() == 5);  // the reopen gets its own change slot
+}
+
+TEST_CASE("queued changes reach the server with the newest text", "[lsp][robustness]") {
+  std::string path = "/tmp/zedit_test_lsp_latest.cpp";
+  zedit::core::write_file(path, "int x;\n");
+  ScopedPath fake(kFakeDir);
+  Editor ed = Editor::open_file(path);
+  // Typed before the handshake can have finished: queued, then flushed.
+  ed.insert_char('a');
+  ed.insert_char('b');
+  REQUIRE(wait_until(
+      ed,
+      [&] {
+        auto d = ed.diagnostics();
+        return !d.empty() && d.front().message == "text:abint x;\n";
+      },
+      std::chrono::seconds(10)));
+}
+
+TEST_CASE("Insert-mode paste of a large register is a single edit", "[paste][perf]") {
+  Editor ed;
+  std::string big;
+  for (int i = 0; i < 4000; ++i) big += "line " + std::to_string(i) + " of pasted text\n";
+  ed.set_unnamed_register(big, false);
+  zedit::core::KeyEvent i_key{zedit::core::Key::Char, 'i'};
+  ed.handle_key(i_key);
+  auto start = std::chrono::steady_clock::now();
+  ed.handle_key(zedit::core::KeyEvent{zedit::core::Key::CtrlP, 0});
+  auto elapsed = std::chrono::steady_clock::now() - start;
+  REQUIRE(ed.buffer().to_string() == big);
+  REQUIRE(ed.cursor().line == 4000);
+  REQUIRE(ed.cursor().col == 0);
+  // ~90 KB: took tens of seconds byte by byte; one edit is milliseconds.
+  REQUIRE(elapsed < std::chrono::seconds(2));
+}

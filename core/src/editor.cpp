@@ -137,6 +137,18 @@ void Editor::insert_char(char c) {
   mark_dirty();
 }
 
+void Editor::insert_text_at_cursor(std::string_view text) {
+  if (text.empty()) {
+    return;
+  }
+  size_t offset = cursor_offset();
+  buffer().insert(offset, text);
+  // Same end position insert_char() would reach one byte at a time, but
+  // one edit: one line-index rebuild, one reparse, one LSP change.
+  set_cursor(offset_to_cursor(offset + text.size()));
+  mark_dirty();
+}
+
 void Editor::backspace() {
   if (cur_window().cursor.col > 0) {
     size_t offset = cursor_offset();

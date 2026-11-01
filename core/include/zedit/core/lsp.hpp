@@ -51,7 +51,7 @@ class LspManager {
   void stop();
 
   void open_document(const std::string& path, const std::string& text);
-  void change_document(const std::string& path, const std::string& text);
+  void change_document(const std::string& path, std::string text);
   void close_document(const std::string& path);
 
   using DefinitionCallback = std::function<void(std::optional<LspLocation>)>;
@@ -61,6 +61,9 @@ class LspManager {
   void request_hover(const std::string& path, size_t line, size_t col, HoverCallback callback);
 
   std::vector<LspDiagnostic> diagnostics_for(const std::string& path) const;
+
+  // How many actions are queued until the server finishes initializing.
+  size_t deferred_count() const { return deferred_until_initialized_.size(); }
 
   // Call once per frame from the main thread: drains incoming messages
   // and dispatches diagnostics/request callbacks.
@@ -78,6 +81,10 @@ class LspManager {
   std::unordered_map<std::string, std::vector<LspDiagnostic>> diagnostics_;
   std::unordered_map<int, std::function<void(const nlohmann::json&)>> pending_requests_;
   std::vector<std::function<void()>> deferred_until_initialized_;
+  // The single queued didChange text per document while uninitialized.
+  std::unordered_map<std::string, std::shared_ptr<std::string>> deferred_change_text_;
+
+  void send_change(const std::string& path, const std::string& text);
 
   void run_or_defer(std::function<void()> action);
   void handle_message(const nlohmann::json& msg);
