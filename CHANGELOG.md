@@ -2,6 +2,14 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.10.0 — 2026-11-01
+
+- Editing is UTF-8 aware: h/l, a, x (with counts), insert-mode backspace and cursor clamping move and delete whole code points instead of single bytes.
+- Typed characters of U+0080 and above are inserted as their full UTF-8 sequence instead of being dropped.
+- LSP positions use UTF-16 columns as the protocol requires: cursor positions sent to the server, plus diagnostics and go-to-definition results coming back, are converted.
+- file:// URIs percent-encode spaces, #, % and non-ASCII bytes, and decoding handles percent escapes and file://localhost/.
+- Known limitations: normal-mode r followed by a multibyte character still replaces with only one byte; the ImGui frontend uses 16-bit ImWchar, so characters above U+FFFF typed from the keyboard arrive as U+FFFD (pasting them works).
+
 ## 1.9.4 (unreleased)
 
 ### Security

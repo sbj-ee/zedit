@@ -2,14 +2,51 @@
 
 namespace zedit::core {
 
-std::string lsp_path_to_uri(const std::string& path) { return "file://" + path; }
+// file:// URIs per RFC 3986/8089: every byte outside the unreserved set
+// (and '/') is percent-encoded, so spaces, '#', '%', '?' and non-ASCII
+// UTF-8 in a path survive the round trip through the server.
+std::string lsp_path_to_uri(const std::string& path) {
+  static constexpr char kHex[] = "0123456789ABCDEF";
+  std::string uri = "file://";
+  for (char ch : path) {
+    const auto c = static_cast<unsigned char>(ch);
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
+        c == '.' || c == '_' || c == '~' || c == '/') {
+      uri += static_cast<char>(c);
+    } else {
+      uri += '%';
+      uri += kHex[c >> 4];
+      uri += kHex[c & 0xF];
+    }
+  }
+  return uri;
+}
 
 std::string lsp_uri_to_path(const std::string& uri) {
   constexpr std::string_view kPrefix = "file://";
-  if (uri.size() >= kPrefix.size() && uri.substr(0, kPrefix.size()) == kPrefix) {
-    return uri.substr(kPrefix.size());
+  if (uri.size() < kPrefix.size() || uri.substr(0, kPrefix.size()) != kPrefix) {
+    return uri;
   }
-  return uri;
+  std::string_view rest = std::string_view(uri).substr(kPrefix.size());
+  // "file://localhost/x" names the same file as "file:///x".
+  if (rest.substr(0, 9) == "localhost") rest.remove_prefix(9);
+  auto hex = [](char ch) -> int {
+    if (ch >= '0' && ch <= '9') return ch - '0';
+    if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+    if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+    return -1;
+  };
+  std::string path;
+  path.reserve(rest.size());
+  for (size_t i = 0; i < rest.size(); ++i) {
+    if (rest[i] == '%' && i + 2 < rest.size() && hex(rest[i + 1]) >= 0 && hex(rest[i + 2]) >= 0) {
+      path += static_cast<char>(static_cast<unsigned char>(hex(rest[i + 1]) * 16 + hex(rest[i + 2])));
+      i += 2;
+    } else {
+      path += rest[i];
+    }
+  }
+  return path;
 }
 
 bool LspManager::start(const std::string& command) {
