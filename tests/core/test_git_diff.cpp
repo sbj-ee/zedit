@@ -99,3 +99,23 @@ TEST_CASE("Editor::git_diff_status returns empty for a file outside any git repo
   Editor ed = Editor::open_file(file.string());
   REQUIRE(ed.git_diff_status().empty());
 }
+
+TEST_CASE("Editor::git_diff_status is cached until the buffer changes", "[git-diff][editor]") {
+  fs::path file = make_repo_with_committed_file("cached.txt", "a\nb\nc\n");
+  Editor ed = Editor::open_file(file.string());
+
+  const auto* first = &ed.git_diff_status();
+  REQUIRE(*first == std::vector<DiffLineStatus>(4, DiffLineStatus::Unchanged));
+  // Same frame, no edit: the cached vector comes back without recomputing.
+  REQUIRE(&ed.git_diff_status() == first);
+
+  ed.set_cursor(zedit::core::Cursor{0, 0});
+  ed.insert_text(ed.cursor_offset(), "new\n");
+  REQUIRE(ed.git_diff_status() ==
+          std::vector<DiffLineStatus>{DiffLineStatus::Added, DiffLineStatus::Unchanged,
+                                      DiffLineStatus::Unchanged, DiffLineStatus::Unchanged,
+                                      DiffLineStatus::Unchanged});
+
+  ed.erase_range(0, 4);  // back to the committed text
+  REQUIRE(ed.git_diff_status() == std::vector<DiffLineStatus>(4, DiffLineStatus::Unchanged));
+}

@@ -169,3 +169,19 @@ TEST_CASE("randomized fuzz vs std::string reference model", "[piece_table]") {
     REQUIRE(pt.size() == reference.size());
   }
 }
+
+TEST_CASE("PieceTable revision changes on every edit and restore", "[piece_table]") {
+  zedit::core::PieceTable a("hello");
+  zedit::core::PieceTable b("hello");
+  REQUIRE(a.revision() != b.revision());
+  auto r0 = a.revision();
+  auto snap = a.snapshot();
+  a.insert(0, "x");
+  auto r1 = a.revision();
+  REQUIRE(r1 != r0);
+  a.erase(0, 1);
+  REQUIRE(a.revision() != r1);
+  auto r2 = a.revision();
+  a.restore(snap);
+  REQUIRE(a.revision() != r2);
+}

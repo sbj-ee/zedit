@@ -2,6 +2,12 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.9.1 (unreleased)
+
+### Performance
+- Git gutter no longer re-diffs the whole file every frame: the result is cached per buffer and recomputed only when the buffer content changes (new `PieceTable::revision()`), and HEAD is split into lines once.
+- `diff_lines` now uses Myers' O((N+M)·D) algorithm (linear-space middle snake) with common prefix/suffix trimming and interned lines, replacing the O(N·M) time and memory LCS table. A 50,000-line file with a few edits now diffs in milliseconds instead of needing a 2.5e9-cell table.
+
 ## 1.9.0 (unreleased)
 
 ### Fixed
