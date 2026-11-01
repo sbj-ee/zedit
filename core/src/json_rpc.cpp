@@ -3,7 +3,10 @@
 namespace zedit::core {
 
 std::string frame_message(const nlohmann::json& message) {
-  std::string body = message.dump();
+  // Invalid UTF-8 in a string (e.g. a buffer caught mid-way through a
+  // multi-byte character) would make the default dump() throw
+  // type_error.316; replace it with U+FFFD instead.
+  std::string body = message.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
   std::string header = "Content-Length: " + std::to_string(body.size()) + "\r\n\r\n";
   return header + body;
 }
@@ -73,14 +76,23 @@ bool JsonRpcTransport::start(const std::string& command, const std::vector<std::
 
 void JsonRpcTransport::stop() {
   stop_requested_ = true;
-  // Closing the pipes unblocks any in-progress read in the reader thread.
-  process_.stop();
+  // Ending the child makes the reader's blocking read return EOF; join it
+  // before the stdout fd is closed, so the fd is never closed under it.
+  process_.terminate();
   if (reader_thread_.joinable()) {
     reader_thread_.join();
   }
+  process_.stop();
 }
 
-void JsonRpcTransport::send(const nlohmann::json& message) { process_.write(frame_message(message)); }
+void JsonRpcTransport::send(const nlohmann::json& message) {
+  // Never throws into the editor: a message that can't be encoded, or a
+  // server that has gone away (EPIPE), just drops the message.
+  try {
+    process_.write(frame_message(message));
+  } catch (const std::exception&) {
+  }
+}
 
 std::vector<nlohmann::json> JsonRpcTransport::poll() {
   std::vector<nlohmann::json> result;

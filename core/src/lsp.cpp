@@ -184,7 +184,12 @@ void LspManager::poll() {
     return;
   }
   for (const nlohmann::json& msg : transport_->poll()) {
-    handle_message(msg);
+    // A malformed or unexpected server message (wrong types, missing
+    // fields) must not take the editor down: drop it and carry on.
+    try {
+      handle_message(msg);
+    } catch (const std::exception&) {
+    }
   }
 }
 
