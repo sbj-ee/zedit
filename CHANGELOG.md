@@ -2,6 +2,27 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.8.10 (unreleased)
+
+### Security
+
+- **Swap files are now private.** Crash-recovery swap files hold unsaved text, so they are now
+  created `0600` (never through a symlink) inside a `0700` directory; an existing swap directory
+  made with default permissions by an older zedit is tightened to `0700`, and a swap directory
+  that is a symlink or owned by someone else is refused.
+- **No guessable shared fallback.** With no `HOME`/`XDG_CACHE_HOME`, swaps go to
+  `/tmp/zedit-<uid>/swap` instead of a fixed `/tmp/zedit/swap` another user could create first.
+
+### Fixed
+
+- **A swap file written by a different zedit version is kept.** It used to be deleted as
+  corrupt, discarding that version's recovery data; it's now left alone.
+
+### Changed
+
+- Recovery uses the shared SHA-256 (`sha256.cpp`) instead of its own copy. Swap file names are
+  unchanged, so existing swaps are still found.
+
 ## 1.8.9 (unreleased)
 
 ### Fixed
