@@ -7,6 +7,9 @@
 #include <string>
 #include <thread>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "zedit/core/recovery.hpp"
 
 using zedit::core::Baseline;
@@ -128,4 +131,82 @@ TEST_CASE("consider_recovery offers differing content and skips identical", "[re
   REQUIRE(write_swap_atomic(abs, "same", Baseline{}));
   REQUIRE_FALSE(zedit::core::consider_recovery(abs, "same").has_value());
   REQUIRE_FALSE(std::filesystem::exists(swap_path_for(abs)));
+}
+
+TEST_CASE("swap file names are unchanged by the shared SHA-256", "[recovery][swap-hardening]") {
+  // Same name earlier versions used, so their swaps are still found.
+  setenv("ZEDIT_SWAP_DIR", "/swapdir", 1);
+  REQUIRE(swap_path_for("/home/someone/notes.txt") ==
+          "/swapdir/08e7f195193050fb7373a8d517a893270de9259062a2154d6eae7341087c44d8.swp");
+  unsetenv("ZEDIT_SWAP_DIR");
+}
+
+TEST_CASE("swap files are 0600 in a 0700 directory", "[recovery][swap-hardening]") {
+  SwapDirGuard guard;
+  std::filesystem::path dir = guard.dir / "swap";
+  setenv("ZEDIT_SWAP_DIR", dir.c_str(), 1);
+  const std::string abs = "/tmp/zedit_recovery_mode_doc.txt";
+  REQUIRE(write_swap_atomic(abs, "secret", Baseline{}));
+  struct stat st {};
+  REQUIRE(::stat(swap_path_for(abs).c_str(), &st) == 0);
+  REQUIRE((st.st_mode & 0777) == 0600);
+  REQUIRE(::stat(dir.c_str(), &st) == 0);
+  REQUIRE((st.st_mode & 0777) == 0700);
+}
+
+TEST_CASE("an existing world-readable swap directory is tightened to 0700",
+          "[recovery][swap-hardening]") {
+  SwapDirGuard guard;
+  std::filesystem::path dir = guard.dir / "swap";
+  std::filesystem::create_directories(dir);
+  ::chmod(dir.c_str(), 0755);
+  setenv("ZEDIT_SWAP_DIR", dir.c_str(), 1);
+  REQUIRE(write_swap_atomic("/tmp/zedit_recovery_tighten.txt", "x", Baseline{}));
+  struct stat st {};
+  REQUIRE(::stat(dir.c_str(), &st) == 0);
+  REQUIRE((st.st_mode & 0777) == 0700);
+}
+
+TEST_CASE("a symlinked swap directory is refused", "[recovery][swap-hardening]") {
+  SwapDirGuard guard;
+  std::filesystem::path real = guard.dir / "elsewhere";
+  std::filesystem::create_directories(real);
+  std::filesystem::path link = guard.dir / "swap";
+  std::filesystem::create_directory_symlink(real, link);
+  setenv("ZEDIT_SWAP_DIR", link.c_str(), 1);
+  REQUIRE_FALSE(write_swap_atomic("/tmp/zedit_recovery_symlink.txt", "x", Baseline{}));
+  REQUIRE(std::filesystem::is_empty(real));
+}
+
+TEST_CASE("a swap from a different format version is kept, not deleted",
+          "[recovery][swap-hardening]") {
+  SwapDirGuard guard;
+  const std::string abs = "/tmp/zedit_recovery_future_doc.txt";
+  REQUIRE(write_swap_atomic(abs, "from the future", Baseline{}));
+  const auto swp = swap_path_for(abs);
+  {
+    std::fstream f(swp, std::ios::binary | std::ios::in | std::ios::out);
+    f.seekp(8);
+    const char v2[4] = {2, 0, 0, 0};  // version 2, little-endian
+    f.write(v2, 4);
+  }
+  REQUIRE_FALSE(read_swap(abs).has_value());
+  REQUIRE(std::filesystem::exists(swp));
+}
+
+TEST_CASE("with no HOME the swap fallback is per-user, not /tmp/zedit/swap",
+          "[recovery][swap-hardening]") {
+#if defined(__APPLE__)
+  SKIP("macOS always has HOME here");
+#else
+  std::string home = std::getenv("HOME") ? std::getenv("HOME") : "";
+  std::string xdg = std::getenv("XDG_CACHE_HOME") ? std::getenv("XDG_CACHE_HOME") : "";
+  unsetenv("HOME");
+  unsetenv("XDG_CACHE_HOME");
+  unsetenv("ZEDIT_SWAP_DIR");
+  std::string dir = default_swap_dir();
+  if (!home.empty()) setenv("HOME", home.c_str(), 1);
+  if (!xdg.empty()) setenv("XDG_CACHE_HOME", xdg.c_str(), 1);
+  REQUIRE(dir == "/tmp/zedit-" + std::to_string(::geteuid()) + "/swap");
+#endif
 }
