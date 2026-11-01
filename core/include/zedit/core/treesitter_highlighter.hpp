@@ -28,11 +28,16 @@ class TreeSitterHighlighter : public Highlighter {
   void set_text(std::string_view text) override;
   std::vector<HighlightSpan> highlight(size_t start_byte, size_t end_byte) const override;
 
+  // Whether the last set_text() reused the previous tree (ts_tree_edit +
+  // incremental reparse) rather than parsing from scratch.
+  bool last_parse_was_incremental() const { return last_parse_incremental_; }
+
  private:
   TSParser* parser_ = nullptr;
   TSTree* tree_ = nullptr;
   TSQuery* query_ = nullptr;
   std::string text_;
+  bool last_parse_incremental_ = false;
 };
 
 }  // namespace zedit::core

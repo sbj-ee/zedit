@@ -2,6 +2,11 @@
 
 zedit had no changelog before 1.8.0; earlier history is in the git log and the GitHub releases.
 
+## 1.9.2 (unreleased)
+
+### Performance
+- Syntax highlighting reparses incrementally: `set_text()` finds the changed span (common prefix/suffix), describes it with `ts_tree_edit()`, and hands the old tree to tree-sitter, so a keystroke re-lexes only the region around the edit instead of the whole file. Applies to every tree-sitter language and to the Markdown block tree. Unchanged text skips the reparse.
+
 ## 1.9.1 (unreleased)
 
 ### Performance

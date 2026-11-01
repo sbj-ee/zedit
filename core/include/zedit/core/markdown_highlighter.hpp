@@ -41,6 +41,10 @@ class MarkdownHighlighter : public Highlighter {
   void set_text(std::string_view text) override;
   std::vector<HighlightSpan> highlight(size_t start_byte, size_t end_byte) const override;
 
+  // Whether the last set_text() reused the previous tree (ts_tree_edit +
+  // incremental reparse) rather than parsing from scratch.
+  bool last_parse_was_incremental() const { return last_parse_incremental_; }
+
  private:
   TSParser* block_parser_ = nullptr;
   TSTree* block_tree_ = nullptr;
@@ -53,6 +57,7 @@ class MarkdownHighlighter : public Highlighter {
   TSParser* inline_parser_ = nullptr;
   TSQuery* inline_query_ = nullptr;
   std::string text_;
+  bool last_parse_incremental_ = false;
   // Byte ranges of every (inline) node found in the block tree, computed
   // once in set_text() rather than walked again on every highlight() call.
   std::vector<std::pair<size_t, size_t>> inline_regions_;

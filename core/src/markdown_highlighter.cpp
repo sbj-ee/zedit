@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "capture_kind.hpp"
+#include "ts_incremental.hpp"
 
 namespace zedit::core {
 
@@ -72,13 +73,7 @@ MarkdownHighlighter::~MarkdownHighlighter() {
 }
 
 void MarkdownHighlighter::set_text(std::string_view text) {
-  text_.assign(text);
-  TSTree* new_tree = ts_parser_parse_string(block_parser_, nullptr, text_.data(),
-                                             static_cast<uint32_t>(text_.size()));
-  if (block_tree_) {
-    ts_tree_delete(block_tree_);
-  }
-  block_tree_ = new_tree;
+  block_tree_ = detail::reparse(block_parser_, block_tree_, text_, text, last_parse_incremental_);
   find_inline_regions();
 }
 
