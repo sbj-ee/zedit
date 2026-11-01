@@ -56,20 +56,17 @@ LSP, and the Lua config system. Actively growing from there.
 
 ## Installing
 
-**Linux (.deb):** download the latest release from
+**Linux (.deb):** download `zedit-<version>-Linux-amd64.deb` from the latest release at
 [github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
-(currently
-[zedit-1.7.4-Linux-amd64.deb](https://github.com/sbj-ee/zedit/releases/download/v1.7.4/zedit-1.7.4-Linux-amd64.deb))
-and install with:
+and install it with apt (which pulls in its dependencies):
 
 ```sh
-sudo dpkg -i zedit-1.7.4-Linux-amd64.deb
+sudo apt install ./zedit-*-Linux-amd64.deb
 ```
 
-**macOS (.dmg, Apple Silicon only):** download the latest release from
-[github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest)
-(currently
-[zedit-1.7.4-Darwin.dmg](https://github.com/sbj-ee/zedit/releases/download/v1.7.4/zedit-1.7.4-Darwin.dmg)),
+**macOS (.dmg, Apple Silicon only):** download `zedit-<version>-Darwin.dmg` from the latest
+release at
+[github.com/sbj-ee/zedit/releases/latest](https://github.com/sbj-ee/zedit/releases/latest),
 open it, and drag `ze.app` to Applications.
 
 The CI `.dmg` is **unsigned**. After a Safari (or browser) download, Gatekeeper
@@ -114,7 +111,18 @@ checked in the app. Releases are signed with zedit's own minisign key, ID `DBC46
 ## Building
 
 Requires CMake 3.21+, a C++20 compiler, and Ninja (recommended). `curl` is needed at run time
-for the update check.
+for the update check. Dependencies (GLFW, Dear ImGui, tree-sitter, Lua, …) are fetched by CMake.
+
+On Debian/Ubuntu, install the build dependencies with:
+
+```sh
+sudo apt install cmake ninja-build g++ pkg-config git curl \
+  libgl1-mesa-dev libx11-dev libxcursor-dev libxinerama-dev libxrandr-dev libxi-dev \
+  libwayland-dev libxkbcommon-dev
+```
+
+`clangd` is optional (C/C++ LSP features). On macOS, the Xcode command line tools plus
+`brew install cmake ninja` are enough.
 
 ```sh
 cmake -B build -G Ninja
@@ -129,6 +137,11 @@ cmake --build build --target zedit_tests
 ctest --test-dir build --output-on-failure
 ```
 
+Tests that need a real `clangd` are skipped when it isn't on `PATH` (CI sets
+`ZEDIT_REQUIRE_CLANGD=1` to make that a failure). For a sanitizer build, configure with
+`-DZEDIT_SANITIZE=ON` (AddressSanitizer + UndefinedBehaviorSanitizer). CI also builds with
+`-DZEDIT_WERROR=ON`, which makes warnings in zedit's own code errors.
+
 Tests tagged `[real-clipboard]` overwrite the desktop clipboard, so they are
 skipped unless `ZEDIT_TEST_REAL_CLIPBOARD=1`. On Linux the `[x11]` ones need
 `$DISPLAY` and `xclip` (e.g. under `xvfb-run -a`); the `[wayland]` ones need
@@ -138,7 +151,7 @@ CI does) and `wl-paste`.
 ## Version bumps
 
 **One place only:** the `VERSION` argument of `project()` in the top-level
-`CMakeLists.txt` (currently `1.8.5`). Configure regenerates
+`CMakeLists.txt` (currently `1.9.3`). Configure regenerates
 `version.hpp` for the About dialog / update checker; CPack and the macOS
 bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 
@@ -146,8 +159,11 @@ bundle already read `PROJECT_VERSION`. Do not hand-edit a version header.
 project(zedit VERSION 1.7.1 LANGUAGES CXX C)  # example bump
 ```
 
-Then rebuild, run tests, tag, and re-cpack. Update README download links
-to the new release asset names when you publish.
+Add a matching `## x.y.z (unreleased)` heading at the top of `CHANGELOG.md` and update the
+"currently" version above; `scripts/check-version.sh` (run by CI) fails if the three disagree.
+Before tagging, date the heading (`## x.y.z — YYYY-MM-DD`); the release workflow runs
+`scripts/check-version.sh --tag vx.y.z`, which also requires the tag to match and the heading to
+be dated. Then rebuild, run tests, tag, and re-cpack.
 
 ## Packaging
 

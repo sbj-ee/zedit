@@ -29,10 +29,10 @@ class MyersDiff {
   }
 
   void diff(int a_lo, int a_hi, int b_lo, int b_hi) {
-    while (a_lo < a_hi && b_lo < b_hi && a_[a_lo] == b_[b_lo]) {
+    while (a_lo < a_hi && b_lo < b_hi && a_.data()[a_lo] == b_.data()[b_lo]) {
       match(a_lo++, b_lo++);
     }
-    while (a_lo < a_hi && b_lo < b_hi && a_[a_hi - 1] == b_[b_hi - 1]) {
+    while (a_lo < a_hi && b_lo < b_hi && a_.data()[a_hi - 1] == b_.data()[b_hi - 1]) {
       match(--a_hi, --b_hi);
     }
     if (a_lo == a_hi || b_lo == b_hi) {

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <thread>
 
+#include "clangd_available.hpp"
 #include "zedit/core/file_io.hpp"
 #include "zedit/core/lsp.hpp"
 
@@ -29,6 +30,7 @@ bool wait_until(LspManager& lsp, Predicate&& done, std::chrono::seconds timeout)
 }  // namespace
 
 TEST_CASE("LspManager starts clangd and reports diagnostics for a real error", "[lsp][clangd]") {
+  ZEDIT_REQUIRE_CLANGD_OR_SKIP();
   std::string path = "/tmp/zedit_test_lsp_diag.cpp";
   zedit::core::write_file(path, "int main() {\n  undeclared_identifier;\n  return 0;\n}\n");
 
@@ -50,6 +52,7 @@ TEST_CASE("LspManager starts clangd and reports diagnostics for a real error", "
 }
 
 TEST_CASE("LspManager go-to-definition resolves a real symbol via clangd", "[lsp][clangd]") {
+  ZEDIT_REQUIRE_CLANGD_OR_SKIP();
   std::string path = "/tmp/zedit_test_lsp_def.cpp";
   zedit::core::write_file(path, "int add(int a, int b) {\n  return a + b;\n}\n\nint main() {\n  return add(1, 2);\n}\n");
 
@@ -78,6 +81,7 @@ TEST_CASE("LspManager go-to-definition resolves a real symbol via clangd", "[lsp
 }
 
 TEST_CASE("LspManager hover returns real type information via clangd", "[lsp][clangd]") {
+  ZEDIT_REQUIRE_CLANGD_OR_SKIP();
   std::string path = "/tmp/zedit_test_lsp_hover.cpp";
   zedit::core::write_file(path, "int add(int a, int b) {\n  return a + b;\n}\n");
 
