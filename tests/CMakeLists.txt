@@ -15,6 +15,7 @@ add_executable(zedit_tests
   core/test_highlight.cpp
   core/test_treesitter_smoke.cpp
   core/test_treesitter_highlighter.cpp
+  core/test_treesitter_incremental.cpp
   core/test_more_languages.cpp
   core/test_windows.cpp
   core/test_diff.cpp
